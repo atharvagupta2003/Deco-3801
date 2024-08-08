@@ -66,7 +66,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    uploaded_files = st.file_uploader("Choose a file to upload", accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Choose a file to upload", accept_multiple_files=True, type=['csv', 'pdf','json'])
 
     if uploaded_files:
         st.session_state.uploaded_files = uploaded_files
@@ -77,7 +77,7 @@ with st.sidebar:
             input_entered = 1
     
     st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True) 
-    if st.button("Submit", help="Please click on  this button to get the desired sequence", type= "primary"):
+    if st.button("Reconstruct sequence", help="Please click on  this button to get the desired sequence", type= "primary"):
         if not st.session_state.uploaded_files:
             st.write("Please upload a file")
         elif input_entered == 0:
