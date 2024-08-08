@@ -1,29 +1,8 @@
 import streamlit as st
 import os
 import time
-
-def save_uploaded_file(uploaded_file):
-    try:
-        with open(os.path.join("data/documents", uploaded_file.name), "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        return True
-    except:
-        return False
-
-
-
-#mock , need to be replaced with the original logic once we move down the project 
-def mock_sequence_reconstruction(query):
-    steps = [
-        "Analyze input query",
-        "Retrieve relevant documents",
-        "Extract key information",
-        "Identify sequence components",
-        "Arrange components in logical order",
-        "Fill in missing steps",
-        "Generate final sequence"
-    ]
-    return ". ".join(steps)
+import pandas as pd
+from wikihow_sequence_reconstruction.scripts.preprocess import preprocess_text, process_document
 
 def main():
     st.set_page_config(page_title="Sequence Reconstruction Pipeline", layout="wide")
@@ -81,24 +60,23 @@ def main():
     with col1:
         st.markdown('<p class="medium-font">Document Management</p>', unsafe_allow_html=True)
         
-        uploaded_files = st.file_uploader("Upload documents", accept_multiple_files=True)
+        uploaded_file = st.file_uploader("Upload a document (CSV or PDF)", type=['csv', 'pdf'])
 
-        if uploaded_files:
-            for file in uploaded_files:
-                if save_uploaded_file(file):
-                    st.success(f"File {file.name} saved successfully")
+        if uploaded_file:
+            preprocessed_data = process_document(uploaded_file)
+            if preprocessed_data:
+                # Save the preprocessed data
+                if not os.path.exists('data/documents'):
+                    os.makedirs('data/documents')
+                
+                if uploaded_file.name.endswith('.csv'):
+                    preprocessed_csv = pd.DataFrame(preprocessed_data)
+                    preprocessed_csv.to_csv('data/documents/preprocessed_sequences.csv', index=False)
+                    st.success(f"Preprocessed data for {preprocessed_data['title']} saved to data/documents/preprocessed_sequences.csv")
                 else:
-                    st.error(f"Error saving file {file.name}")
-
-        st.markdown('<p class="small-font">Existing Documents</p>', unsafe_allow_html=True)
-        if not os.path.exists("data/documents"):
-            os.makedirs("data/documents")
-        documents = os.listdir("data/documents")
-        if documents:
-            for file in documents:
-                st.write(f"📄 {file}")
-        else:
-            st.write("No documents uploaded yet.")
+                    with open(f'data/documents/preprocessed_sequences_{uploaded_file.name.split(".")[0]}.txt', 'w') as f:
+                        f.write('\n'.join(preprocessed_data['steps']))
+                    st.success(f"Preprocessed data for {preprocessed_data['title']} saved to data/documents/preprocessed_sequences_{uploaded_file.name.split('.')[0]}.txt")
 
     with col2:
         st.markdown('<p class="medium-font">Sequence Reconstruction</p>', unsafe_allow_html=True)
@@ -108,20 +86,14 @@ def main():
         if st.button("Reconstruct Sequence", key="reconstruct"):
             if query:
                 with st.spinner("Reconstructing sequence..."):
-                    time.sleep(2)
-                    result = mock_sequence_reconstruction(query)
-                    
+                    # TODO: Replace with your actual sequence reconstruction logic
                     st.success("Sequence reconstructed successfully!")
                     
                     st.markdown('<div class="result-box">', unsafe_allow_html=True)
                     st.markdown('<p class="small-font">Reconstructed Sequence:</p>', unsafe_allow_html=True)
-                    st.write(result)
+                    st.write("Placeholder for reconstructed sequence")
                     
-                    steps = result.split('. ')
-                    for i, step in enumerate(steps, 1):
-                        st.markdown(f"**Step {i}:** {step}")
-                        st.progress(i / len(steps))
-                        time.sleep(0.5)
+                    # TODO: Display the reconstructed sequence steps
                     st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.warning("Please enter a query.")
@@ -135,12 +107,12 @@ def main():
     
     st.markdown(
         """
-    <div style='position: fixed; bottom: 0; left: 0; width: 100%; color: #1E88E5; text-align: center; padding: 10px;'>
-    Created as part of the AI project for sequence reconstruction.
-    </div>
-    """,
-    unsafe_allow_html=True
+        <div style='position: fixed; bottom: 0; left: 0; width: 100%; color: #1E88E5; text-align: center; padding: 10px;'>
+        Created as part of the AI project for sequence reconstruction.
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     main()
