@@ -37,7 +37,7 @@ for prompt in st.session_state.prompts:
         st.markdown(prompt["content"])
 
 # Handle user input
-if input := st.chat_input("For what process or activity are you requiring the sequential steps?"):
+if input := st.chat_input("Enter the prompt"):
     st.chat_message("user").markdown(input)
     st.session_state.prompts.append({"role": "user", "content": input})
 
