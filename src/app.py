@@ -77,7 +77,7 @@ with st.sidebar:
             input_entered = 1
     
     st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True) 
-    if st.button("Submit", help="Please click on  this button to get the desired sequence"):
+    if st.button("Submit", help="Please click on  this button to get the desired sequence", type= "primary"):
         if not st.session_state.uploaded_files:
             st.write("Please upload a file")
         elif input_entered == 0:
