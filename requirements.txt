@@ -7,3 +7,6 @@ numpy
 streamlit
 transformers
 scikit-learn
+pdfplumber
+nltk
+PyPDF2
