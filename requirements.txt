@@ -1,0 +1,9 @@
+torch
+torchvision
+onnx
+onnxruntime
+flask
+numpy
+streamlit
+transformers
+scikit-learn
