@@ -76,7 +76,7 @@ with st.sidebar:
         if i["role"] == "user":
             input_entered = 1
     
-    if st.button("Submit"):
+    if st.button("Submit", help="Please click on  this button to get the desired sequence"):
         if not st.session_state.uploaded_files:
             st.write("Please upload a file")
         elif input_entered == 0:
@@ -88,7 +88,7 @@ with st.sidebar:
 
 
 if value:
-    st.chat_message("human").markdown(file_names)
+    st.chat_message("assistant").markdown(file_names)
 
 def clear_chat_history():
     st.session_state.prompts = [{"role": "assistant",  "content": ("Welcome to SeqSynth, an intelligent sequence reconstruction tool designed to streamline the process of understanding complex sequential information. "
