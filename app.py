@@ -1,118 +1,79 @@
-import streamlit as st
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from ingest import preprocess_and_ingest
+from retriever import retrieve_sequence
+from preprocessor import process_document
+from pubmed_search import search_pubmed, fetch_pubmed_details
+from arxiv_search import search_arxiv, download_pdf, extract_text_from_pdf
 import os
-import time
-import pandas as pd
-from wikihow_sequence_reconstruction.scripts.preprocess import preprocess_text, process_document
 
-def main():
-    st.set_page_config(page_title="Sequence Reconstruction Pipeline", layout="wide")
-    
-    # Custom CSS
-    st.markdown("""
-    <style>
-    .big-font {
-        font-size: 50px !important;
-        font-weight: bold;
-        color: #1E88E5;
-        margin-bottom: 30px;
-    }
-    .medium-font {
-        font-size: 30px !important;
-        font-weight: bold;
-        color: #0D47A1;
-        margin-top: 20px;
-        margin-bottom: 20px;
-    }
-    .small-font {
-        font-size: 18px !important;
-        color: #1565C0;
-        margin-bottom: 10px;
-    }
-    .result-box {
-        background-color: #E3F2FD;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 10px 0;
-        border: 1px solid #90CAF9;
-    }
-    .stButton>button {
-        background-color: #1E88E5;
-        color: white;
-        font-weight: bold;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-    }
-    .stButton>button:hover {
-        background-color: #1565C0;
-    }
-    .stTextArea>div>div>textarea {
-        background-color: #F3F3F3;
-        color: #333333;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+app = Flask(__name__)
+CORS(app)  # This will enable CORS for all routes
 
-    st.markdown('<p class="big-font">Sequence Reconstruction Pipeline</p>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 2])
+@app.route('/ingest', methods=['POST'])
+def ingest():
+    if 'file' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No selected file'}), 400
+    if file:
+        filename = file.filename
+        file_path = os.path.join('data', 'documents', filename)
+        file.save(file_path)
+        try:
+            preprocessed_data = process_document(file)
+            num_documents = preprocess_and_ingest(file_path)
+            return jsonify({'status': 'success', 'message': f'Document ingested successfully. {num_documents} chunks created.'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
 
-    with col1:
-        st.markdown('<p class="medium-font">Document Management</p>', unsafe_allow_html=True)
-        
-        uploaded_file = st.file_uploader("Upload a document (CSV or PDF)", type=['csv', 'pdf'])
+@app.route('/reconstruct', methods=['POST'])
+def reconstruct():
+    data = request.json
+    query = data.get('query')
+    if not query:
+        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
+    try:
+        result = retrieve_sequence(query)
+        return jsonify({'status': 'success', 'sequence': result})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-        if uploaded_file:
-            preprocessed_data = process_document(uploaded_file)
-            if preprocessed_data:
-                # Save the preprocessed data
-                if not os.path.exists('data/documents'):
-                    os.makedirs('data/documents')
-                
-                if uploaded_file.name.endswith('.csv'):
-                    preprocessed_csv = pd.DataFrame(preprocessed_data)
-                    preprocessed_csv.to_csv('data/documents/preprocessed_sequences.csv', index=False)
-                    st.success(f"Preprocessed data for {preprocessed_data['title']} saved to data/documents/preprocessed_sequences.csv")
-                else:
-                    with open(f'data/documents/preprocessed_sequences_{uploaded_file.name.split(".")[0]}.txt', 'w') as f:
-                        f.write('\n'.join(preprocessed_data['steps']))
-                    st.success(f"Preprocessed data for {preprocessed_data['title']} saved to data/documents/preprocessed_sequences_{uploaded_file.name.split('.')[0]}.txt")
+@app.route('/search_pubmed', methods=['POST'])
+def pubmed_search():
+    data = request.json
+    query = data.get('query')
+    max_results = data.get('max_results', 20)
+    if not query:
+        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
+    try:
+        id_list = search_pubmed(query, max_results)
+        papers = fetch_pubmed_details(id_list)
+        results = []
+        for paper in papers['PubmedArticle']:
+            article = paper['MedlineCitation']['Article']
+            results.append({
+                'title': article['ArticleTitle'],
+                'abstract': article.get('Abstract', {}).get('AbstractText', [''])[0],
+                'authors': ', '.join([author['LastName'] + ' ' + author['ForeName'] for author in article.get('AuthorList', [])]),
+                'publication_date': paper['MedlineCitation']['DateCompleted']['Year']
+            })
+        return jsonify({'status': 'success', 'results': results})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-    with col2:
-        st.markdown('<p class="medium-font">Sequence Reconstruction</p>', unsafe_allow_html=True)
-        
-        query = st.text_area("Enter your query for sequence reconstruction:", height=100)
-
-        if st.button("Reconstruct Sequence", key="reconstruct"):
-            if query:
-                with st.spinner("Reconstructing sequence..."):
-                    # TODO: Replace with your actual sequence reconstruction logic
-                    st.success("Sequence reconstructed successfully!")
-                    
-                    st.markdown('<div class="result-box">', unsafe_allow_html=True)
-                    st.markdown('<p class="small-font">Reconstructed Sequence:</p>', unsafe_allow_html=True)
-                    st.write("Placeholder for reconstructed sequence")
-                    
-                    # TODO: Display the reconstructed sequence steps
-                    st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.warning("Please enter a query.")
-
-    st.sidebar.title("About")
-    st.sidebar.info(
-        "This application demonstrates a sequence reconstruction pipeline "
-        "using Foundation Models and Retrieval Augmented Generation. "
-        "Upload documents, enter a query, and see the reconstructed sequence."
-    )
-    
-    st.markdown(
-        """
-        <div style='position: fixed; bottom: 0; left: 0; width: 100%; color: #1E88E5; text-align: center; padding: 10px;'>
-        Created as part of the AI project for sequence reconstruction.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+@app.route('/search_arxiv', methods=['POST'])
+def arxiv_search():
+    data = request.json
+    query = data.get('query')
+    if not query:
+        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
+    try:
+        results = search_arxiv(query)
+        return jsonify({'status': 'success', 'results': results})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == "__main__":
-    main()
+    app.run(host='0.0.0.0', port=5001, debug=True)
