@@ -1,100 +1,135 @@
 import streamlit as st
-import base64
-import streamlit.components.v1 as components
 
-value = 0
-input_entered = 0
-st.set_page_config(page_title="🦙💬 SeqSynth")
+def about():
+    description = """
+    ### Sequence Reconstruction using Foundation Models and RAG
 
-# Apply background image CSS
-background_image = """
-<style>
-[data-testid="stAppViewContainer"] > .main {
-    background-color:#1c1c3c;
-    background-size: 100vw 100vh;  
-    background-position: center;  
-    background-repeat: no-repeat;
-}
-</style>
-"""
-st.markdown(background_image, unsafe_allow_html=True)
+    This project aims to develop a pipeline for the reconstruction of sequential information, such as chemical synthesis steps or timeline events, using Foundation Models (FMs) and Retrieval Augmented Generation (RAG). The pipeline enables users to easily understand how sequential information flows from one piece to another, identify gaps, and automate the otherwise tedious manual reconstruction process. Users can interact with the pipeline through a user-friendly interface, upload relevant documents, enter queries, and search for related papers in PubMed and arXiv.
 
-# Initialize session state for prompts and uploaded files
-if "prompts" not in st.session_state:
-    st.session_state.prompts = [{
-        "role": "assistant",
-        "content": ("Welcome to SeqSynth, an intelligent sequence reconstruction tool designed to streamline the process of understanding complex sequential information. "
-                    "Our application enables you to effortlessly generate sequences for activities such as chemical synthesis steps or timeline events. Simply upload your files and specify the process or activity, "
-                    "and SeqSynth will provide a clear and coherent sequence, helping you identify gaps and understand the flow of information with ease.")
-    }]
+    **Key Features:**
+    - Upload documents and enter queries to reconstruct sequences.
+    - Integration with PubMed and arXiv for relevant research paper searches.
+    - Designed to provide a general solution for various domains including chemical synthesis and timeline reconstruction.
 
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
+    This project is developed in collaboration with NVIDIA, leveraging advanced AI models to ground the reconstructed sequences in factual information.
+    """
+    return description
 
-# Display chat messages from history
-for prompt in st.session_state.prompts:
-    with st.chat_message(prompt["role"]):
-        st.markdown(prompt["content"])
+def reconstruct_sequence():
+    # Placeholder function for sequence reconstruction
+    # In a real application, this would contain the actual reconstruction logic
+    sequence = "ATCG" * 10  # Example sequence
+    return sequence
 
-# Handle user input
-if input := st.chat_input("Enter the prompt"):
-    st.chat_message("user").markdown(input)
-    st.session_state.prompts.append({"role": "user", "content": input})
-
-
-# Sidebar content
-with st.sidebar:
-    st.image("/Users/varunsingh/Desktop/First-Project/src/Logo.png", use_column_width=True)
-    st.markdown(
-        """
-        <style>
-        .custom-title {
-            font-size: 30px;
-            background: linear-gradient(to right, #1e90ff, #6a11cb, #2575fc, #00ced1, #32cd32);
-            -webkit-background-clip: text;
-            color: transparent;
-            font-family: 'Arial', sans-serif;
-            letter-spacing: -.03em;
-            text-align: center;
-            font-weight: bold;
-        }
-        </style>
-        <div class="custom-title">
-            <div class="line-one">Welcome to SeqSynth</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    uploaded_files = st.file_uploader("Choose a file to upload", accept_multiple_files=True, type=['csv', 'pdf','json'])
-
-    if uploaded_files:
-        st.session_state.uploaded_files = uploaded_files
+def main():
     
+    description = """
+    ### Sequence Reconstruction using Foundation Models and RAG
 
-    for i in st.session_state.prompts:
-        if i["role"] == "user":
-            input_entered = 1
+    This project aims to develop a pipeline for the reconstruction of sequential information, such as chemical synthesis steps or timeline events, using Foundation Models (FMs) and Retrieval Augmented Generation (RAG). The pipeline enables users to easily understand how sequential information flows from one piece to another, identify gaps, and automate the otherwise tedious manual reconstruction process. Users can interact with the pipeline through a user-friendly interface, upload relevant documents, enter queries, and search for related papers in PubMed and arXiv.
+
+    **Key Features:**
+    - Upload documents and enter queries to reconstruct sequences.
+    - Integration with PubMed and arXiv for relevant research paper searches.
+    - Designed to provide a general solution for various domains including chemical synthesis and timeline reconstruction.
+
+    This project is developed in collaboration with NVIDIA, leveraging advanced AI models to ground the reconstructed sequences in factual information.
+    """
     
-    st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True) 
-    if st.button("Reconstruct sequence", help="Please click on  this button to get the desired sequence", type= "primary"):
-        if not st.session_state.uploaded_files:
-            st.write("Please upload a file")
-        elif input_entered == 0:
-            st.write("Please enter the prompt")
-        else:
-            file_names = "  \n ".join([uploaded_file.name for uploaded_file in st.session_state.uploaded_files])
-            value = 1
-            st.write("Files uploaded successfully!")
+    st.set_page_config(page_title="Sequence Reconstruction Pipeline", layout="wide")
 
+    # Custom CSS to create a top navigation bar
+    st.markdown("""
+    <style>
+    .stButton > button {
+        width: 100%;
+    }
+    .navbar {
+        display: flex;
+        justify-content: space-around;
+        padding: 10px;
+        background-color: #f0f2f6;
+        margin-bottom: 20px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-if value:
-    st.chat_message("assistant").markdown(file_names)
+    # Top navigation bar
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        home = st.button("Home")
+    with col2:
+        about = st.button("About")
+    with col3:
+        doc_management = st.button("Document Management")
+    with col4:
+        pubmed = st.button("PubMed Search")
+    with col5:
+        arxiv = st.button("arXiv Search")
 
-def clear_chat_history():
-    st.session_state.prompts = [{"role": "assistant",  "content": ("Welcome to SeqSynth, an intelligent sequence reconstruction tool designed to streamline the process of understanding complex sequential information. "
-                    "Our application enables you to effortlessly generate sequences for activities such as chemical synthesis steps or timeline events. Simply upload your files and specify the process or activity, "
-                    "and SeqSynth will provide a clear and coherent sequence, helping you identify gaps and understand the flow of information with ease.")}]
-    st.session_state.uploaded_files = []
-st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
+    # Determine which page to show
+    if home:
+        page = "Home"
+    elif about:
+        page = "About"
+    elif doc_management:
+        page = "Document Management"
+    elif pubmed:
+        page = "PubMed Search"
+    elif arxiv:
+        page = "arXiv Search"
+    else:
+        page = "Home"  # Default page
 
+    # Main content
+    if page == "Home":
+        st.title("Enhance your research with our Sequence Reconstruction Pipeline")
+        st.write("Easily manage documents, perform advanced searches, and visualize reconstructed sequences.")
+
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.image("https://media.istockphoto.com/id/1354827837/photo/human-like-a-robot-in-a-pensive-posture.jpg?s=1024x1024&w=is&k=20&c=5h4i0OFy1vjMaPIYIyU-j4RnmTblA-CVZYJRNkogngY=", use_column_width=True)
+        
+        with col2:
+            st.subheader("Upload Documents")
+            st.write("Add your documents to start the sequence reconstruction process.")
+            st.file_uploader("Choose files", accept_multiple_files=True)
+
+        # Search bar
+        st.text_input("Enter your sequence reconstruction query")
+
+        # Reconstruct Sequence button
+        if st.button("Reconstruct Sequence"):
+            sequence = reconstruct_sequence()
+            
+            # Display the reconstructed sequence
+            st.subheader("Reconstructed Sequence")
+            st.text_area("", value=sequence, height=100, key="reconstructed_sequence")
+
+            # Display the visualization
+            st.subheader("Visualization")
+            st.write("This is a placeholder for the sequence visualization.")
+            # In a real application, you would generate and display the visualization here
+            # For example:
+            # st.plotly_chart(generate_sequence_plot(sequence))
+
+    elif page == "About":
+        st.title("About")
+        st.write(description)
+    elif page == "Document Management":
+        st.title("Document Management")
+        st.write("Document Management page content goes here.")
+    elif page == "PubMed Search":
+        st.title("PubMed Search")
+        st.write("PubMed Search page content goes here.")
+    elif page == "arXiv Search":
+        st.title("arXiv Search")
+        st.write("arXiv Search page content goes here.")
+
+    # Footer
+    st.markdown("---")
+    st.write("Created as part of the AI project for sequence reconstruction.")
+
+if __name__ == "__main__":
+    main()
