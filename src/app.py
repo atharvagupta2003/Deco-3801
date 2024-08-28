@@ -1,4 +1,9 @@
-import streamlit as st
+import streamlit as st 
+from PIL import Image 
+
+# Load and resize the image
+image = Image.open("/Users/varunsingh/Desktop/Project/Deco-3801/src/file copy.jpg")
+resized_image = image.resize((400, 200))
 
 def about():
     description = """
@@ -89,7 +94,7 @@ def main():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.image("https://media.istockphoto.com/id/1354827837/photo/human-like-a-robot-in-a-pensive-posture.jpg?s=1024x1024&w=is&k=20&c=5h4i0OFy1vjMaPIYIyU-j4RnmTblA-CVZYJRNkogngY=", use_column_width=True)
+            st.image(image, width=400, use_column_width=True)
         
         with col2:
             st.subheader("Upload Documents")
