@@ -57,6 +57,12 @@ def main():
     .nvidia-green {
         color: #76B900;
     }
+    .stTabs {
+        margin-bottom: 20px;
+    }
+    .stTabs div[role="tablist"] > div {
+        margin-right: 30px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -66,8 +72,8 @@ def main():
     # Title
     st.title("Sequence Reconstruction")
 
-    # Navigation tabs
-    tabs = st.tabs(["🏠 Home", "📊 Visualization", "🔍 Gap Identification"])
+    # Navigation tabs without icons
+    tabs = st.tabs(["Home", "Visualization", "Gap Identification"])
     
     with tabs[0]:
         st.markdown('<h2 class="nvidia-green">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
