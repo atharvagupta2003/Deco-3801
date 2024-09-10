@@ -1,13 +1,11 @@
 import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
-from langchain_pinecone import PineconeVectorStore, PineconeEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_chroma import Chroma
 
 load_dotenv()
-
-#which is the best way to integrate this with our preprocessor?
 
 #document to vector storage
 if __name__ == "__main__":
@@ -19,10 +17,18 @@ if __name__ == "__main__":
     text = text_splitter.split_documents(document)
     print(f"Number of documents: {len(text)}")
 
-    model_name = "multilingual-e5-large"
-    embeddings = PineconeEmbeddings(
-        model=model_name,
-        pinecone_api_key=os.environ.get("PINECONE_API_KEY")
+    embeddings = NVIDIAEmbeddings(
+        model="nvidia/nv-embedqa-e5-v5",
+        api_key=os.environ.get("nvidia_api_key"),
+        truncate="NONE",
     )
-    print("ingesting")
-    PineconeVectorStore.from_documents(text, embeddings, index=os.getenv("INDEX_NAME"))
+
+    vectorstore = Chroma.from_documents(
+        documents=text,
+        embedding=embeddings,
+        persist_directory="./chroma_db"
+    )
+
+    vectorstore.persist()
+
+    print("Embeddings successfully stored in Chroma vector database.")
