@@ -1,9 +1,14 @@
 import streamlit as st
+import os
 
 def reconstruct_sequence(query, files):
     # Placeholder function for sequence reconstruction
     sequence = "ATCG" * 10  # Example sequence
     return sequence
+
+def load_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 def main():
     st.set_page_config(
@@ -12,59 +17,9 @@ def main():
         layout="wide"
     )
 
-    # Custom CSS
-    st.markdown("""
-    <style>
-    .stApp {
-        background-color: #000000;
-        color: #ffffff;
-    }
-    .stButton > button {
-        background-color: #76B900;
-        color: #ffffff;
-        border: none;
-        padding: 0.5rem 1rem;
-        font-weight: bold;
-        border-radius: 5px;
-    }
-    .stButton > button:hover {
-        background-color: #5c9100;
-    }
-    h1 {
-        color: #ffffff;
-        font-size: 2.5em;
-    }
-    .nvidia-logo {
-        width: 100px;
-        margin-bottom: 20px;
-    }
-    .file-uploader {
-        background-color: #2A2A2A;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 20px;
-    }
-    .browse-files {
-        color: #FF4B4B;
-        text-decoration: underline;
-        cursor: pointer;
-    }
-    .stTextArea > div > div > textarea {
-        background-color: #2A2A2A;
-        color: #ffffff;
-        border: 1px solid #76B900;
-    }
-    .nvidia-green {
-        color: #76B900;
-    }
-    .stTabs {
-        margin-bottom: 20px;
-    }
-    .stTabs div[role="tablist"] > div {
-        margin-right: 30px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Load the external CSS file
+    css_file = os.path.join(os.path.dirname(__file__), "styles.css")
+    load_css(css_file)
 
     # NVIDIA logo
     st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">', unsafe_allow_html=True)
