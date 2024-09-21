@@ -1,6 +1,7 @@
 import fitz  # PyMuPDF
 import requests
 import os
+import arxiv
 
 def search_arxiv(query):
     print(f"Searching ArXiv for: {query}")

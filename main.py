@@ -16,7 +16,7 @@ def ask_question(question):
     return response
 
 if __name__ == "__main__":
-    print("Welcome to the Chemical Information Retrieval System")
+    print("Hello! Welcome to the Chemical Information Retrieval System")
     print("Type 'exit' to quit the program")
 
     while True:

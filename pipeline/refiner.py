@@ -3,7 +3,7 @@ from langchain.chains import LLMChain
 from langchain.llms import HuggingFaceHub
 import os
 
-# Initialize Hugging Face LLM
+
 llm = HuggingFaceHub(
     repo_id="google/flan-t5-large",
     model_kwargs={"temperature": 0.1, "max_length": 512},
@@ -26,7 +26,7 @@ refinement_prompt = PromptTemplate(
     input_variables=["question"]
 )
 
-# Create the LLMChain
+
 refinement_chain = LLMChain(
     llm=llm,
     prompt=refinement_prompt

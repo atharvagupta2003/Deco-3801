@@ -32,7 +32,7 @@ def main():
     # Search PubMed
     id_list = search_pubmed(query)
     if not id_list:
-        print("No results found for your query.")
+        print("No results found.")
         return
 
     # Fetch details for the results

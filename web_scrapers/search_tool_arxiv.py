@@ -70,7 +70,7 @@ def main():
                 print(f"   Text extracted and saved to: {text_file}\n")
             """
     else:
-        print("No relevant papers found.")
+        print("Papers not found.")
 
 if __name__ == '__main__':
     main()
