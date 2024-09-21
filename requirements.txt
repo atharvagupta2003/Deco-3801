@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -i https://pypi.org/simple
 aiohappyeyeballs==2.4.0; python_version >= '3.8'
 aiohttp==3.10.5; python_version >= '3.8'
@@ -61,3 +62,17 @@ typing-extensions==4.12.2; python_version >= '3.8'
 typing-inspect==0.9.0
 urllib3==2.2.2; python_version >= '3.12' and python_version < '4.0'
 yarl==1.9.4; python_version >= '3.7'
+=======
+torch
+torchvision
+onnx
+onnxruntime
+flask
+numpy
+streamlit
+transformers
+scikit-learn
+pdfplumber
+nltk
+PyPDF2
+>>>>>>> d0672a9cbff14692ab4e6d9142e08d76b4204046

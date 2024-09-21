@@ -2,8 +2,8 @@ from Bio import Entrez
 import json
 
 # Function to search PubMed
-def search_pubmed(query, max_results=5):
-    Entrez.email = 'your_email@example.com'
+def search_pubmed(query, max_results=20):
+    Entrez.email = 'atharvagupta2003@gmail.com'
     handle = Entrez.esearch(db='pubmed',
                             sort='relevance',
                             retmax=max_results,
@@ -14,17 +14,15 @@ def search_pubmed(query, max_results=5):
 
 # Function to fetch details of articles
 def fetch_pubmed_details(id_list):
-    if not id_list:
-        return []
     ids = ','.join(id_list)
-    Entrez.email = 'your_email@example.com'
+    Entrez.email = 'atharvagupta2003@gmail.com'
     handle = Entrez.efetch(db='pubmed',
                            retmode='xml',
                            id=ids)
     results = Entrez.read(handle)
     return results
 
-# If you want to test this module independently
+# Main function to execute search and retrieve articles
 def main():
     query = input("Enter your search query: ")
     print("Searching PubMed for: ", query)
@@ -44,12 +42,11 @@ def main():
         title = paper['MedlineCitation']['Article']['ArticleTitle']
         print(f"{i + 1}) {title}")
 
-    # Optional: Print detailed structure of the first paper
-    """
+    # Print detailed structure of the first paper
     if papers['PubmedArticle']:
         print("\nStructure of the first paper (JSON):")
         print(json.dumps(papers['PubmedArticle'][0], indent=2))
-    """
 
 if __name__ == "__main__":
     main()
+

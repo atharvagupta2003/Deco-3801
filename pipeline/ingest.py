@@ -5,12 +5,14 @@ from langchain_text_splitters import CharacterTextSplitter
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_chroma import Chroma
 
+
 load_dotenv()
 
 #document to vector storage
 if __name__ == "__main__":
-    loader = TextLoader("/Users/hp/Desktop/react-langchain/chemical")
+    loader = TextLoader("chemical", encoding='utf-8')
     document = loader.load()
+
 
     #check for data cleaning.
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0.1)
@@ -29,6 +31,6 @@ if __name__ == "__main__":
         persist_directory="./chroma_db"
     )
 
-    vectorstore.persist()
+    #vectorstore.persist()
 
     print("Embeddings successfully stored in Chroma vector database.")

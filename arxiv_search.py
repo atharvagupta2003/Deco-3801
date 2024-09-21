@@ -1,28 +1,27 @@
-import arxiv
 import fitz  # PyMuPDF
 import requests
 import os
 
-# Function to search ArXiv
-def search_arxiv(query, max_results=5):
+def search_arxiv(query):
     print(f"Searching ArXiv for: {query}")
-    search = arxiv.Search(
+    client = arxiv.Client()
+    results = client.results(arxiv.Search(
         query=query,
-        max_results=max_results,
+        max_results=1,  # 1 result
         sort_by=arxiv.SortCriterion.Relevance,
-    )
-    results = []
-    for result in search.results():
-        results.append({
+    ))
+
+    papers = []
+    for result in results:
+        papers.append({
             'title': result.title,
             'summary': result.summary,
             'url': result.entry_id,
             'pdf_url': result.pdf_url,
             'published': result.published,
         })
-    return results
+    return papers
 
-# Function to download PDF
 def download_pdf(pdf_url, title, save_folder):
     response = requests.get(pdf_url)
     if response.status_code == 200:
@@ -35,7 +34,6 @@ def download_pdf(pdf_url, title, save_folder):
         print(f"Failed to download {title}.")
         return None
 
-# Function to extract text from PDF
 def extract_text_from_pdf(file_path):
     doc = fitz.open(file_path)
     text = ""
@@ -44,9 +42,12 @@ def extract_text_from_pdf(file_path):
     doc.close()
     return text
 
-# If you want to test this module independently
 def main():
     query = input("Enter your search query: ")
+
+    save_folder = 'data'
+    os.makedirs(save_folder, exist_ok=True)
+
     results = search_arxiv(query)
 
     if results:
@@ -56,19 +57,17 @@ def main():
             print(f"   Published: {paper['published']}")
             print(f"   URL: {paper['url']}\n")
 
-            # Optional: Download and extract text
-            # Uncomment the following lines if you wish to download PDFs
-            """
-            save_folder = 'data_arxiv'
-            os.makedirs(save_folder, exist_ok=True)
+            # Download the PDF and save it in the data folder
             pdf_file = download_pdf(paper['pdf_url'], paper['title'], save_folder)
             if pdf_file:
+                # Extract text
                 text = extract_text_from_pdf(pdf_file)
+                # Save the text in the data folder
                 text_file = pdf_file.replace('.pdf', '.txt')
-                with open(text_file, 'w', encoding='utf-8') as f:
+                text_file_path = os.path.join(save_folder, os.path.basename(text_file))
+                with open(text_file_path, 'w', encoding='utf-8') as f:
                     f.write(text)
-                print(f"   Text extracted and saved to: {text_file}\n")
-            """
+                print(f"   Text extracted and saved to: {text_file_path}\n")
     else:
         print("No relevant papers found.")
 
