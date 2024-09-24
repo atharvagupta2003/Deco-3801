@@ -1,167 +1,113 @@
 import streamlit as st
-import os
-import pandas as pd
 import requests
+import os
+import json
 
-API_URL = 'http://localhost:5000'
+# Set Streamlit page configuration
+st.set_page_config(
+    page_title="NVIDIA-style Document Q&A",
+    page_icon="🧊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-def call_flask_api(endpoint, json_data=None, files=None):
-    try:
-        if files:
-            response = requests.post(f"{API_URL}/{endpoint}", files=files)
-        else:
-            response = requests.post(f"{API_URL}/{endpoint}", json=json_data)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"API request failed: {e}")
-        return None
-
-def main():
-    st.set_page_config(page_title="Sequence Reconstruction Pipeline", layout="wide")
-    st.markdown("""
-    <style>
-    .big-font {
-        font-size: 50px !important;
-        font-weight: bold;
-        color: #1E88E5;
-        margin-bottom: 30px;
-    }
-    .medium-font {
-        font-size: 30px !important;
-        font-weight: bold;
-        color: #0D47A1;
-        margin-top: 20px;
-        margin-bottom: 20px;
-    }
-    .small-font {
-        font-size: 18px !important;
-        color: #1565C0;
-        margin-bottom: 10px;
-    }
-    .result-box {
-        background-color: #E3F2FD;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 10px 0;
-        border: 1px solid #90CAF9;
+# Custom CSS to set NVIDIA-style green and black theme
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #1a1a1a;
+        color: #ffffff;
     }
     .stButton>button {
-        background-color: #1E88E5;
-        color: white;
-        font-weight: bold;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
+        color: #ffffff;
+        background-color: #76b900;
+        border-color: #76b900;
     }
-    .stButton>button:hover {
-        background-color: #1565C0;
+    .stTextInput>div>div>input {
+        color: #ffffff;
+        background-color: #2a2a2a;
     }
     .stTextArea>div>div>textarea {
-        background-color: #F3F3F3;
-        color: #333333;
+        color: #ffffff;
+        background-color: #2a2a2a;
     }
-    </style>
-    """, unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
-    st.markdown('<p class="big-font">Sequence Reconstruction Pipeline</p>', unsafe_allow_html=True)
+# Create temp directory if it doesn't exist
+temp_dir = "temp"
+if not os.path.exists(temp_dir):
+    os.makedirs(temp_dir)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Document Management", "Sequence Reconstruction", "PubMed Search", "arXiv Search"])
 
-    with tab1:
-        st.markdown('<p class="medium-font">Document Management</p>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("Upload a document (CSV or PDF)", type=['csv', 'pdf'])
-        
-        if uploaded_file:
-            if st.button("Ingest Document"):
-                with st.spinner("Ingesting document..."):
-                    files = {'file': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                    response = call_flask_api('ingest', files=files)
-                    if response and response.get('status') == 'success':
-                        st.success(response.get('message'))
-                    else:
-                        st.error("Failed to ingest document.")
+# Function to check server health
+def check_server_health():
+    try:
+        response = requests.get('http://localhost:5050/health')
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
 
-    with tab2:
-        st.markdown('<p class="medium-font">Sequence Reconstruction</p>', unsafe_allow_html=True)
-        query = st.text_area("Enter your query for sequence reconstruction:", height=100)
+# Title
+st.title("📚 Document Q&A System")
 
-        if st.button("Reconstruct Sequence", key="reconstruct"):
-            if query:
-                with st.spinner("Reconstructing sequence..."):
-                    response = call_flask_api('reconstruct', json_data={'query': query})
-                    if response and response.get('status') == 'success':
-                        st.success("Sequence reconstructed successfully!")
-                        st.markdown('<div class="result-box">', unsafe_allow_html=True)
-                        st.markdown('<p class="small-font">Reconstructed Sequence:</p>', unsafe_allow_html=True)
-                        st.write(response.get('sequence', "No sequence found."))
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    else:
-                        st.error("Failed to reconstruct sequence.")
+# Check server health
+if not check_server_health():
+    st.error("Error: Unable to connect to the server. Please ensure the Flask backend is running.")
+    st.stop()
+
+# File uploader
+uploaded_file = st.file_uploader("Choose a file", type=['txt', 'pdf', 'csv'])
+
+if uploaded_file is not None:
+    # Display file details
+    file_details = {"FileName": uploaded_file.name, "FileType": uploaded_file.type, "FileSize": uploaded_file.size}
+    st.write(file_details)
+
+    # Save the file temporarily
+    temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    # Send the file to the Flask backend
+    try:
+        files = {'file': open(temp_file_path, 'rb')}
+        response = requests.post('http://localhost:5050/upload', files=files)
+
+        if response.status_code == 200:
+            st.success("File uploaded and processed successfully!")
+        else:
+            error_message = response.json().get('error',
+                                                'Unknown error') if response.content else 'No response from server'
+            st.error(f"Error uploading file. Status code: {response.status_code}. Message: {error_message}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error connecting to the server: {str(e)}")
+    finally:
+        # Remove the temporary file
+        os.remove(temp_file_path)
+
+# Question input
+question = st.text_input("Ask a question about the uploaded document:")
+
+if st.button("Get Answer"):
+    if question:
+        try:
+            # Send the question to the Flask backend
+            response = requests.post('http://localhost:5050/ask', json={'question': question})
+
+            if response.status_code == 200:
+                answer = response.json()['answer']
+                st.write("Answer:", answer)
             else:
-                st.warning("Please enter a query.")
+                error_message = response.json().get('error',
+                                                    'Unknown error') if response.content else 'No response from server'
+                st.error(f"Error getting answer. Status code: {response.status_code}. Message: {error_message}")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error connecting to the server: {str(e)}")
+    else:
+        st.warning("Please enter a question.")
 
-    with tab3:
-        st.markdown('<p class="medium-font">PubMed Search</p>', unsafe_allow_html=True)
-        pubmed_query = st.text_input("Enter your PubMed search query:")
-        max_results = st.number_input("Maximum number of results:", min_value=1, max_value=100, value=20)
-
-        if st.button("Search PubMed", key="pubmed_search"):
-            if pubmed_query:
-                with st.spinner("Searching PubMed..."):
-                    response = call_flask_api('search_pubmed', json_data={'query': pubmed_query, 'max_results': max_results})
-                    if response and response.get('status') == 'success':
-                        st.success("PubMed search completed successfully!")
-                        for paper in response.get('results', []):
-                            st.markdown('<div class="result-box">', unsafe_allow_html=True)
-                            st.markdown(f"<p class='small-font'>{paper['title']}</p>", unsafe_allow_html=True)
-                            st.write(f"Authors: {paper['authors']}")
-                            st.write(f"Published: {paper['publication_date']}")
-                            st.write(f"Abstract: {paper['abstract']}")
-                            st.markdown('</div>', unsafe_allow_html=True)
-                    else:
-                        st.error("Failed to search PubMed.")
-            else:
-                st.warning("Please enter a search query.")
-
-    with tab4:
-        st.markdown('<p class="medium-font">arXiv Search</p>', unsafe_allow_html=True)
-        arxiv_query = st.text_input("Enter your arXiv search query:")
-
-        if st.button("Search arXiv", key="arxiv_search"):
-            if arxiv_query:
-                with st.spinner("Searching arXiv..."):
-                    response = call_flask_api('search_arxiv', json_data={'query': arxiv_query})
-                    if response and response.get('status') == 'success':
-                        st.success("arXiv search completed successfully!")
-                        for paper in response.get('results', []):
-                            st.markdown('<div class="result-box">', unsafe_allow_html=True)
-                            st.markdown(f"<p class='small-font'>{paper['title']}</p>", unsafe_allow_html=True)
-                            st.write(f"Summary: {paper['summary']}")
-                            st.write(f"Published: {paper['published']}")
-                            st.write(f"URL: {paper['url']}")
-                            st.markdown('</div>', unsafe_allow_html=True)
-                    else:
-                        st.error("Failed to search arXiv.")
-            else:
-                st.warning("Please enter a search query.")
-
-    st.sidebar.title("About")
-    st.sidebar.info(
-        "This application demonstrates a sequence reconstruction pipeline "
-        "using Foundation Models and Retrieval Augmented Generation. "
-        "Upload documents, enter a query, and see the reconstructed sequence. "
-        "You can also search PubMed and arXiv for relevant papers."
-    )
-
-    st.markdown(
-        """
-        <div style='position: fixed; bottom: 0; left: 0; width: 100%; color: #1E88E5; text-align: center; padding: 10px;'>
-            Created as part of the AI project for sequence reconstruction.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-if __name__ == "__main__":
-    main()
+# Display information about the system
+st.sidebar.title("About")
+st.sidebar.info("This is a document Q&A system that uses NVIDIA AI for embeddings and retrieval.")
+st.sidebar.info("Upload a document and ask questions to get AI-powered answers!")

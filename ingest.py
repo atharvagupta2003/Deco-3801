@@ -1,43 +1,45 @@
 import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
-from langchain_pinecone import PineconeVectorStore, PineconeEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
-import pandas as pd
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_chroma import Chroma
+from database import store_document
+
+
 
 load_dotenv()
 
-def preprocess_and_ingest(file_path):
-    """
-    Preprocesses the given file and ingests the processed text into Pinecone.
-    """
-    # Load and preprocess the file
-    if file_path.endswith('.csv'):
-        data = pd.read_csv(file_path)
-        documents = [row['text'] for _, row in data.iterrows()]
-    elif file_path.endswith('.txt'):
-        with open(file_path, 'r') as file:
-            documents = file.readlines()
-    else:
-        raise ValueError("Unsupported file format")
+def preprocess_and_ingest(preprocessed_data):
+    chunks = []
+    for item in preprocessed_data:
+        # Implement your chunking logic here
+        chunks.append(item)
 
-    # Combine documents into a single text block
-    text = "\n".join(documents)
+    num_documents = store_document(chunks)
+    return num_documents
+#document to vector storage
+if __name__ == "__main__":
+    loader = TextLoader("/Users/aniketgupta/Desktop/Deco-3801/chemical.txt")
+    document = loader.load()
 
-    # Split the text into chunks
+    #check for data cleaning.
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0.1)
-    split_text = text_splitter.split_documents([text])
+    text = text_splitter.split_documents(document)
+    print(f"Number of documents: {len(text)}")
 
-    # Initialize embeddings and vector store
-    model_name = "multilingual-e5-large"
-    embeddings = PineconeEmbeddings(
-        model=model_name,
-        pinecone_api_key=os.environ.get("PINECONE_API_KEY")
+    embeddings = NVIDIAEmbeddings(
+        model="nvidia/nv-embedqa-e5-v5",
+        api_key=os.environ.get("nvidia_api_key"),
+        truncate="NONE",
     )
 
-    index_name = os.getenv("INDEX_NAME")
+    vectorstore = Chroma.from_documents(
+        documents=text,
+        embedding=embeddings,
+        persist_directory="./chroma_db"
+    )
 
-    # Ingest into Pinecone
-    PineconeVectorStore.from_documents(split_text, embeddings, index=index_name)
+    vectorstore.persist()
 
-    return len(split_text)
+    print("Embeddings successfully stored in Chroma vector database.")

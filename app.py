@@ -1,79 +1,83 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-from ingest import preprocess_and_ingest
-from retriever import retrieve_sequence
-from preprocessor import process_document
-from pubmed_search import search_pubmed, fetch_pubmed_details
-from arxiv_search import search_arxiv, download_pdf, extract_text_from_pdf
+from werkzeug.utils import secure_filename
 import os
+from ingest import preprocess_and_ingest
+from retriever import ask_question
+from preprocessor import process_document
+import logging
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # This will enable CORS for all routes
+CORS(app)  # Enable CORS for all routes
 
-@app.route('/ingest', methods=['POST'])
-def ingest():
-    if 'file' not in request.files:
-        return jsonify({'status': 'error', 'message': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': 'No selected file'}), 400
-    if file:
-        filename = file.filename
-        file_path = os.path.join('data', 'documents', filename)
-        file.save(file_path)
-        try:
-            preprocessed_data = process_document(file)
-            num_documents = preprocess_and_ingest(file_path)
-            return jsonify({'status': 'success', 'message': f'Document ingested successfully. {num_documents} chunks created.'})
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-@app.route('/reconstruct', methods=['POST'])
-def reconstruct():
-    data = request.json
-    query = data.get('query')
-    if not query:
-        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
     try:
-        result = retrieve_sequence(query)
-        return jsonify({'status': 'success', 'sequence': result})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
 
-@app.route('/search_pubmed', methods=['POST'])
-def pubmed_search():
-    data = request.json
-    query = data.get('query')
-    max_results = data.get('max_results', 20)
-    if not query:
-        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
+            logging.info(f"File {filename} uploaded successfully")
+
+            # Process the document
+            processed_data = process_document(file_path)
+
+            # Ingest the processed data
+            num_documents = preprocess_and_ingest(processed_data)
+
+            logging.info(f"Ingested {num_documents} documents from {filename}")
+
+            return jsonify(
+                {'message': f'File uploaded and ingested successfully. {num_documents} documents processed.'}), 200
+        return jsonify({'error': 'File type not allowed'}), 400
+    except Exception as e:
+        logging.error(f"Error in upload_file: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@app.route('/ask', methods=['POST'])
+def ask():
     try:
-        id_list = search_pubmed(query, max_results)
-        papers = fetch_pubmed_details(id_list)
-        results = []
-        for paper in papers['PubmedArticle']:
-            article = paper['MedlineCitation']['Article']
-            results.append({
-                'title': article['ArticleTitle'],
-                'abstract': article.get('Abstract', {}).get('AbstractText', [''])[0],
-                'authors': ', '.join([author['LastName'] + ' ' + author['ForeName'] for author in article.get('AuthorList', [])]),
-                'publication_date': paper['MedlineCitation']['DateCompleted']['Year']
-            })
-        return jsonify({'status': 'success', 'results': results})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        data = request.json
+        if 'question' not in data:
+            return jsonify({'error': 'No question provided'}), 400
 
-@app.route('/search_arxiv', methods=['POST'])
-def arxiv_search():
-    data = request.json
-    query = data.get('query')
-    if not query:
-        return jsonify({'status': 'error', 'message': 'Query is required'}), 400
-    try:
-        results = search_arxiv(query)
-        return jsonify({'status': 'success', 'results': results})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        question = data['question']
+        logging.info(f"Received question: {question}")
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True)
+        answer = ask_question(question)
+        logging.info(f"Answer generated for question: {question}")
+        return jsonify({'answer': answer['result']}), 200
+    except Exception as e:
+        logging.error(f"Error in ask: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+if __name__ == '__main__':
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    app.run(debug=True, host='0.0.0.0', port=5050)
