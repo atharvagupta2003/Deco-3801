@@ -5,6 +5,7 @@ from langchain.chains import RetrievalQA
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama.llms import OllamaLLM
+
 load_dotenv()
 
 # Initialize embeddings
@@ -22,7 +23,7 @@ vectorstore = Chroma(
 
 # Initialize Ollama LLM
 llm = OllamaLLM(
-    model="llama3.1",  # Changed to llama2 as llama3.1 might not be available
+    model="llama3.1",
     temperature=0.1
 )
 
@@ -48,12 +49,14 @@ qa_chain = RetrievalQA.from_chain_type(
     chain_type_kwargs={"prompt": prompt}
 )
 
-
 # Function to perform retrieval and answer questions
 def ask_question(question):
-    response = qa_chain.invoke(question)
-    return response
-
+    try:
+        response = qa_chain.invoke(question)
+        return response
+    except Exception as e:
+        print(f"Error while asking question: {str(e)}")
+        raise e
 
 # Main interaction loop
 if __name__ == "__main__":

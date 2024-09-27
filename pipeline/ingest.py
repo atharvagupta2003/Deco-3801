@@ -4,18 +4,19 @@ from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_chroma import Chroma
+from utils.preprocess import process_document
+
 
 load_dotenv()
 
-#document to vector storage
-if __name__ == "__main__":
-    loader = TextLoader("/Users/hp/Desktop/react-langchain/chemical")
-    document = loader.load()
 
-    #check for data cleaning.
+def preprocess_and_ingest(file_path):
+    # Open the file and pass it to process_document
+    with open(file_path, 'rb') as file:
+        preprocessed_data = process_document(file)
+
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0.1)
-    text = text_splitter.split_documents(document)
-    print(f"Number of documents: {len(text)}")
+    chunks = text_splitter.split_text(' '.join(preprocessed_data['steps']))
 
     embeddings = NVIDIAEmbeddings(
         model="nvidia/nv-embedqa-e5-v5",
@@ -23,12 +24,19 @@ if __name__ == "__main__":
         truncate="NONE",
     )
 
-    vectorstore = Chroma.from_documents(
-        documents=text,
+    vectorstore = Chroma.from_texts(
+        texts=chunks,
         embedding=embeddings,
         persist_directory="./chroma_db"
     )
 
-    vectorstore.persist()
 
+
+    return len(chunks)
+
+
+if __name__ == "__main__":
+    file_path = "/Users/aniketgupta/Desktop/Deco-3801/chemical.txt"
+    num_chunks = preprocess_and_ingest(file_path)
+    print(f"Number of chunks ingested: {num_chunks}")
     print("Embeddings successfully stored in Chroma vector database.")
