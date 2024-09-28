@@ -5,7 +5,7 @@ import json
 
 # Set Streamlit page configuration
 st.set_page_config(
-    page_title="Sequence Reconstruction ",
+    page_title="NVIDIA-style Document Q&A",
     page_icon="🧊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -65,11 +65,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Create temp directory if it doesn't exist
-temp_dir = "temp"
-if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir)
-
 # Function to check server health
 def check_server_health():
     try:
@@ -79,7 +74,7 @@ def check_server_health():
         return False
 
 # Title
-st.markdown("<div class='stHeader'><h1>📚 NVIDIA Sequence Reconstruction </h1></div>", unsafe_allow_html=True)
+st.markdown("<div class='stHeader'><h1>📚 NVIDIA Document Q&A System</h1></div>", unsafe_allow_html=True)
 
 # Check server health
 if not check_server_health():
@@ -88,38 +83,30 @@ if not check_server_health():
 
 # File uploader
 st.markdown("<div class='file-uploader'>", unsafe_allow_html=True)
-uploaded_file = st.file_uploader("Choose a file", type=['txt', 'pdf', 'csv'])
+uploaded_files = st.file_uploader("Choose files", type=['txt', 'csv', 'pdf'], accept_multiple_files=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-if uploaded_file is not None:
+if uploaded_files:
     # Display file details
-    file_details = {"FileName": uploaded_file.name, "FileType": uploaded_file.type, "FileSize": uploaded_file.size}
-    st.write(file_details)
+    for file in uploaded_files:
+        st.write(f"File: {file.name}, Size: {file.size} bytes")
 
-    # Save the file temporarily
-    temp_file_path = os.path.join(temp_dir, uploaded_file.name)
-    with open(temp_file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    if st.button("Process Files"):
+        try:
+            files = [('files[]', file) for file in uploaded_files]
+            with st.spinner("Processing files..."):
+                response = requests.post('http://localhost:5050/upload', files=files)
 
-    # Send the file to the Flask backend
-    try:
-        files = {'file': open(temp_file_path, 'rb')}
-        with st.spinner("Processing file..."):
-            response = requests.post('http://localhost:5050/upload', files=files)
-
-        if response.status_code == 200:
-            st.success("File uploaded and processed successfully!")
-        else:
-            error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
-            st.error(f"Error uploading file. Status code: {response.status_code}. Message: {error_message}")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to the server: {str(e)}")
-    finally:
-        # Remove the temporary file
-        os.remove(temp_file_path)
+            if response.status_code == 200:
+                st.success("Files uploaded and processed successfully!")
+            else:
+                error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error connecting to the server: {str(e)}")
 
 # Question input
-question = st.text_input("Ask a question about the uploaded document:")
+question = st.text_input("Ask a question about the uploaded documents:")
 
 if st.button("Get Answer"):
     if question:
@@ -144,6 +131,6 @@ if st.button("Get Answer"):
 # Display information about the system
 st.sidebar.title("About")
 st.sidebar.info("This is a document Q&A system that uses NVIDIA AI for embeddings and retrieval.")
-st.sidebar.info("Upload a document and ask questions to get AI-powered answers!")
+st.sidebar.info("Upload TXT, CSV, or PDF documents and ask questions to get AI-powered answers!")
 st.sidebar.markdown("---")
-st.sidebar.markdown("Made  by Noisy Indian Varun Singh ")
+st.sidebar.markdown("Made with by Noisy Indian Varun Singh ")
