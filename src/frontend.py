@@ -1,9 +1,9 @@
 import streamlit as st
+import requests
+import os
+import json
 
-def reconstruct_sequence(query, files):
-    # Placeholder function for sequence reconstruction
-    sequence = "ATCG" * 10  # Example sequence
-    return sequence
+
 
 def main():
     st.set_page_config(
@@ -148,10 +148,25 @@ def main():
     if current_page == "home":
         st.markdown('<h2 style="color: #76B900;">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns([2, 1, 1])
-        # Compact file uploader
-        with col1:
-            uploaded_files = st.file_uploader("Drag and drop files here", accept_multiple_files=True, key="file_uploader")
+        
+        uploaded_files = st.file_uploader("Drag and drop files here",  type=['txt', 'csv', 'pdf'], accept_multiple_files=True, key="file_uploader")
+        if uploaded_files:
+            for file in uploaded_files:
+                st.write(f"File: {file.name}, Size: {file.size} bytes")
+            if st.button("Process Files"):
+                try:
+                    files = [('files[]', file) for file in uploaded_files]
+                    with st.spinner("Processing files..."):
+                        response = requests.post('http://localhost:5050/upload', files=files)
+
+                    if response.status_code == 200:
+                        st.success("Files uploaded and processed successfully!")
+                    else:
+                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                        st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error connecting to the server: {str(e)}")
+
 
         # Query input
         st.markdown('<div class="query-input">', unsafe_allow_html=True)
@@ -161,10 +176,21 @@ def main():
         # Reconstruct Sequence button
         if st.button("Reconstruct Sequence"):
             if query and uploaded_files:
-                sequence = reconstruct_sequence(query, uploaded_files)
-                st.markdown("---")
-                st.subheader("Reconstructed Sequence:")
-                st.code(sequence, language="plaintext")
+                try:
+                    # Send the question to the Flask backend
+                    with st.spinner("Generating answer..."):
+                        response = requests.post('http://localhost:5050/ask', json={'question': query})
+
+                    if response.status_code == 200:
+                        answer = response.json()['answer']
+                        st.markdown("<div class='answer-box'>", unsafe_allow_html=True)
+                        st.write("Answer:", answer)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                        st.error(f"Error getting answer. Status code: {response.status_code}. Message: {error_message}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error connecting to the server: {str(e)}")
             else:
                 st.warning("Please enter a query and upload files before reconstructing the sequence.")
 
@@ -177,6 +203,9 @@ def main():
         st.write("Gap Identification content goes here.")
 
     st.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.title("About")
+    st.sidebar.info("This is a document Q&A system that uses NVIDIA AI for embeddings and retrieval.")
+    st.sidebar.info("Upload TXT, CSV, or PDF documents and ask questions to get AI-powered answers!")
 
 if __name__ == "__main__":
     main()
