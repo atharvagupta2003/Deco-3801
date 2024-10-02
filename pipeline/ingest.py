@@ -8,17 +8,10 @@ import tiktoken
 
 load_dotenv()
 
-<<<<<<< HEAD
-#document to vector storage
-if __name__ == "__main__":
-    loader = TextLoader("chemical")
-    document = loader.load()
-=======
 def num_tokens(text: str, model: str = "cl100k_base") -> int:
     """Return the number of tokens in a string."""
     encoding = tiktoken.get_encoding(model)
     return len(encoding.encode(text))
->>>>>>> 8671af3ea4deed25368a31d6e1464b2ed4fbfd26
 
 def truncate_text(text: str, max_tokens: int = 512) -> str:
     """Truncate text to a maximum number of tokens."""
@@ -76,12 +69,6 @@ def ingest_documents(folder_path):
         embedding=embeddings,
         persist_directory="./chroma_db"
     )
-<<<<<<< HEAD
-
-    #vectorstore.persist()
-
-=======
->>>>>>> 8671af3ea4deed25368a31d6e1464b2ed4fbfd26
     print("Embeddings successfully stored in Chroma vector database.")
 
 if __name__ == "__main__":
