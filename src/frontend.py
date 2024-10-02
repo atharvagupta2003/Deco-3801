@@ -1,3 +1,4 @@
+import requests
 import streamlit as st
 import os
 
@@ -35,9 +36,28 @@ def main():
 
         # File uploader
         st.markdown('<div class="file-uploader">', unsafe_allow_html=True)
-        st.file_uploader("Drag and drop files here", accept_multiple_files=True, key="file_uploader", label_visibility="collapsed")
+        uploaded_files = st.file_uploader("Drag and drop files here", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, key="file_uploader", label_visibility="collapsed")
         st.markdown('Limit 200MB per file', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
+        if uploaded_files:
+            # Display file details
+            for file in uploaded_files:
+                st.write(f"File: {file.name}, Size: {file.size} bytes")
+
+            if st.button("Process Files"):
+                try:
+                    files = [('files[]', file) for file in uploaded_files]
+                    with st.spinner("Processing files..."):
+                        response = requests.post('http://localhost:5050/upload', files=files)
+
+                    if response.status_code == 200:
+                        st.success("Files uploaded and processed successfully!")
+                    else:
+                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                        st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error connecting to the server: {str(e)}")
 
         # Query input
         st.text_area("Enter your query for sequence reconstruction:", height=100, key="query_input")
@@ -48,13 +68,21 @@ def main():
             uploaded_files = st.session_state.file_uploader
 
             if query and uploaded_files:
-                # Reconstruct sequence
-                sequence = reconstruct_sequence(query, uploaded_files)
-                
-                # Display reconstructed sequence at the bottom
-                st.markdown("---")
-                st.subheader("Reconstructed Sequence:")
-                st.code(sequence, language="plaintext")
+                try:
+                    # Send the question to the Flask backend
+                    with st.spinner("Generating answer..."):
+                        response = requests.post('http://localhost:5050/ask', json={'question': query})
+
+                    if response.status_code == 200:
+                        answer = response.json()['answer']
+                        st.markdown("<div class='answer-box'>", unsafe_allow_html=True)
+                        st.write("Answer:", answer)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                        st.error(f"Error getting answer. Status code: {response.status_code}. Message: {error_message}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error connecting to the server: {str(e)}")
             else:
                 st.warning("Please enter a query and upload files before reconstructing the sequence.")
 
