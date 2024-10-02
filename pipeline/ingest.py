@@ -9,7 +9,7 @@ load_dotenv()
 
 #document to vector storage
 if __name__ == "__main__":
-    loader = TextLoader("/Users/hp/Desktop/react-langchain/chemical")
+    loader = TextLoader("chemical")
     document = loader.load()
 
     #check for data cleaning.
@@ -29,6 +29,6 @@ if __name__ == "__main__":
         persist_directory="./chroma_db"
     )
 
-    vectorstore.persist()
+    #vectorstore.persist()
 
     print("Embeddings successfully stored in Chroma vector database.")
