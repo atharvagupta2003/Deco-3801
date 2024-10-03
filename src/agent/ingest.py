@@ -39,7 +39,7 @@ embeddings = NVIDIAEmbeddings(
 vectorstore = Chroma.from_documents(
         documents=doc_splits,
         embedding=embeddings,
-        persist_directory="./chroma_db"
+        collection_name="rag-chroma",
 )
 print("Embeddings successfully stored in Chroma vector database.")
 
