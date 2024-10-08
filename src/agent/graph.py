@@ -3,22 +3,23 @@ from dotenv import load_dotenv
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA  
 from langchain_chroma import Chroma
 from langchain_ollama import ChatOllama
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from langchain.schema import Document
 from langgraph.graph import END, START
-from ingest import retriever
+from langgraph.graph import StateGraph
+from src.agent.ingest import retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
 
 load_dotenv()
 
-llm = ChatOllama(model='llama3.1', temperature=0)
-llm_json_mode = ChatOllama(model='llama3.1', temperature=0, format='json')
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
 
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
@@ -219,35 +220,37 @@ def grade_generation(state):
         return "not useful"
 
 
-from langgraph.graph import StateGraph
-from IPython.display import Image, display
+def setup_workflow():
+    workflow = StateGraph(GraphState)
 
-workflow = StateGraph(GraphState)
+    workflow.add_node("websearch", web_search)
+    workflow.add_node("retrieve", retrieve)
+    workflow.add_node("generate", generate)
 
-# Define the nodes
-workflow.add_node("websearch", web_search)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
+    workflow.add_edge(START, "retrieve")
+    workflow.add_conditional_edges("retrieve", route_question, {"websearch": "websearch", "sequence generator": "generate"})
+    workflow.add_edge("websearch", "generate")
+    workflow.add_conditional_edges("generate", grade_generation, {"useful": END, "not useful": "retrieve"})
+    workflow.add_edge("generate", END)
 
-workflow.add_edge(START, "retrieve")
-workflow.add_conditional_edges(
-    "retrieve",
+    return workflow
 
-    route_question,
-    {"websearch": "websearch", "sequence generator": "generate"},
-)
-workflow.add_edge("websearch", "generate")
-workflow.add_conditional_edges(
-    "generate",
-    grade_generation,
-    {"useful": END,
-        "not useful": "retrieve"},
-)
-workflow.add_edge("generate", END)
 
-graph = workflow.compile()
-display(Image(graph.get_graph().draw_mermaid_png()))
+def ask_question(question: str):
+    workflow = setup_workflow()
+    inputs = {"question": question}
+    events = []
 
-inputs = {"question": "steps for synthesis of carbon monoxide?"}
-for event in graph.stream(inputs, stream_mode="values"):
-    print(event)
+    for event in workflow.compile().stream(inputs, stream_mode="values"):
+        events.append(event)
+    return events
+
+
+def main():
+    question = "steps for synthesis of carbon monoxide?"
+    result = ask_question(question)
+    print(result)
+
+
+if __name__ == "__main__":
+    main()

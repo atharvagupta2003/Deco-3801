@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 from pipeline.ingest import ingest_documents
-from pipeline.retriever import ask_question
+from src.agent.graph import ask_question
 import logging
 from flask_cors import CORS
 
