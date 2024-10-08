@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
-from pipeline.ingest import ingest_documents
+from pipeline.old_ingest import ingest_documents
 from src.agent.graph import ask_question
 import logging
 from flask_cors import CORS
@@ -76,9 +76,10 @@ def ask():
         question = data['question']
         logging.info(f"Received question: {question}")
 
-        answer = ask_question(question)
+        answer_list = ask_question(question)
+        answer = answer_list[2]['generation'].pretty_repr()
         logging.info(f"Answer generated for question: {question}")
-        return jsonify({'answer': answer['result']}), 200
+        return jsonify({'answer': answer}), 200
     except Exception as e:
         logging.error(f"Error in ask: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500

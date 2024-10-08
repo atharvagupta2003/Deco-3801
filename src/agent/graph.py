@@ -15,6 +15,7 @@ from src.agent.ingest import retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
+from langchain_core.output_parsers import JsonOutputParser
 
 load_dotenv()
 
@@ -66,7 +67,6 @@ Answer:"""
 # Return the result as a JSON object like this:
 # {score: "yes"} or {score: "no"}
 # """
-from langchain_core.output_parsers import JsonOutputParser
 
 prompt = PromptTemplate(
     template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
