@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts import PromptTemplate
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import ChatOllama
@@ -9,7 +10,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 
 from langchain.schema import Document
 from langgraph.graph import END, START
-
+from ingest import retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
@@ -19,22 +20,6 @@ load_dotenv()
 llm = ChatOllama(model='llama3.1', temperature=0)
 llm_json_mode = ChatOllama(model='llama3.1', temperature=0, format='json')
 
-# Initialize embeddings
-embeddings = NVIDIAEmbeddings(
-    model="nvidia/nv-embedqa-e5-v5",
-    api_key=os.environ.get("nvidia_api_key"),
-    truncate="NONE",
-)
-
-# Load the persisted Chroma vector store
-vectorstore = Chroma(
-    persist_directory="./chroma_db",
-    embedding_function=embeddings
-)
-
-retriever = vectorstore.as_retriever(k=5)
-
-# Define a custom prompt template
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
 
@@ -56,70 +41,45 @@ Answer the user question based on the {context}
 
 Only give the answer nothing else.
 
+always give the source with the answer
+
 Your answer should be in steps such as step1: /n step2: /n step3: ....
+
+Give only the answer nothing else
 
 Include explanation of every step and if any reaction is involved.
 
 Question: {question}
 Answer:"""
 
-# def router(user_query):
+# ans_grader_instructions = """
+# You are a grader assessing whether an answer is useful to resolve a question. /n
+# Here is the answer:
+# /n ------- /n
+# {generation}
+# /n ------- /n
+# Here is the question: {question}
 #
-#     docs = retriever.invoke(user_query)
-#     context = " ".join([doc.page_content for doc in docs])
+# Return JSON with single key, score, that is 'yes' or 'no' depending on the question and the answer generated.
 #
-#     print("---context---")
-#     print(context)
-#     print("------------------------------")
-#     prompt_template = PromptTemplate(
-#         input_variables=["context", "question"],
-#         template=router_instructions,
-#     )
-#
-#     prompt = prompt_template.format(context=context, question=user_query)
-#
-#     router_response = llm_json_mode.invoke(prompt)
-#
-#     try:
-#         response_json = json.loads(router_response.content)
-#         return response_json
-#     except json.JSONDecodeError:
-#         return {"error": "Failed to decode JSON response from LLM"}
-#     except AttributeError:
-#         return {"error": "LLM response does not have 'content' attribute"}
-#
-#
-# def generator(user_query):
-#     docs = retriever.invoke(user_query)
-#     context = " ".join([doc.page_content for doc in docs])
-#     seq_generator_prompt = seq_generator_instructions.format(context=context, question=user_query)
-#     generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
-#     return generation.content
+# Return the result as a JSON object like this:
+# {score: "yes"} or {score: "no"}
+# """
+from langchain_core.output_parsers import JsonOutputParser
 
-# # Test the router function with a sample query
-# if __name__ == "__main__":
-#     test_query = "What are the steps for synthesis of nitrogen?"
-#
-#     # Call the router function with the test query
-#     result = generator(test_query)
-#
-#     print(result)
-#     # # Print the result
-#     # print("Routing Decision:")
-#     # print(json.dumps(result, indent=4))
+prompt = PromptTemplate(
+    template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+    Here is the answer:
+    \n ------- \n
+    {generation} 
+    \n ------- \n
+    Here is the question: {question}
+    Give a binary score 'yes' or 'no' to indicate whether the answer is useful to resolve a question. \n
+    Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.""",
+    input_variables=["generation", "question"],
+)
 
-
-# # Test the router function with a sample query
-# if __name__ == "__main__":
-#     test_query = "What are the steps for synthesis of nitrogen?"
-#
-#     # Call the router function with the test query
-#     result = router(test_query)
-#
-#     print(result)
-#     # Print the result
-#     print("Routing Decision:")
-#     print(json.dumps(result, indent=4))
+answer_grader = prompt | llm_json_mode | JsonOutputParser()
 
 web_search_tool = TavilySearchResults(
     max_results=5,
@@ -128,11 +88,6 @@ web_search_tool = TavilySearchResults(
     include_raw_content=True,
     include_images=True,
     api_key=os.environ.get("TAVILY_API_KEY"),
-    # include_domains=[...],
-    # exclude_domains=[...],
-    # name="...",            # overwrite default tool name
-    # description="...",     # overwrite default tool description
-    # args_schema=...,       # overwrite default args_schema: BaseModel
 )
 
 
@@ -141,10 +96,10 @@ class GraphState(TypedDict):
     Graph state is a dictionary that contains information we want to propagate to, and modify in, each graph node.
     """
 
-    question: str  # User question
-    generation: str  # LLM generation
-    web_search: str  # Binary decision to run web search
-    documents: List[str]  # List of retrieved documents
+    question: str
+    generation: str
+    web_search: str
+    documents: List[str]
 
 
 # -----------Nodes------------
@@ -161,7 +116,6 @@ def retrieve(state):
     print("---RETRIEVE---")
     question = state["question"]
 
-    # Write retrieved documents to documents key in state
     documents = retriever.invoke(question)
     return {"documents": documents}
 
@@ -242,15 +196,38 @@ def route_question(state):
         return "sequence generator"
 
 
+def grade_generation(state):
+    """
+    Determines whether the generation answers the question or not.
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        str: Decision for next node to call
+    """
+    print("---GRADE GENERATION vs QUESTION---")
+    question = state["question"]
+    generation = state["generation"]
+    score = answer_grader.invoke({'question': question, 'generation': generation})
+    grade = score["score"]
+    if grade == "yes":
+        print("---DECISION: GENERATION ADDRESSES QUESTION---")
+        return "useful"
+    else:
+        print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
+        return "not useful"
+
+
 from langgraph.graph import StateGraph
 from IPython.display import Image, display
 
 workflow = StateGraph(GraphState)
 
 # Define the nodes
-workflow.add_node("websearch", web_search)  # web search
-workflow.add_node("retrieve", retrieve)  # retrieve
-workflow.add_node("generate", generate)  # generate
+workflow.add_node("websearch", web_search)
+workflow.add_node("retrieve", retrieve)
+workflow.add_node("generate", generate)
 
 workflow.add_edge(START, "retrieve")
 workflow.add_conditional_edges(
@@ -260,11 +237,17 @@ workflow.add_conditional_edges(
     {"websearch": "websearch", "sequence generator": "generate"},
 )
 workflow.add_edge("websearch", "generate")
+workflow.add_conditional_edges(
+    "generate",
+    grade_generation,
+    {"useful": END,
+        "not useful": "retrieve"},
+)
 workflow.add_edge("generate", END)
 
 graph = workflow.compile()
 display(Image(graph.get_graph().draw_mermaid_png()))
 
-inputs = {"question": "steps for synthesis of nitrogen?"}
+inputs = {"question": "steps for synthesis of carbon monoxide?"}
 for event in graph.stream(inputs, stream_mode="values"):
     print(event)
