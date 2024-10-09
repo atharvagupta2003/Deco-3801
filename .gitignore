@@ -2,7 +2,7 @@
 venv/
 env/
 ENV/
-.venv/
+venv/
 # Ignore environment variable files
 .env
 # Byte-compiled / optimized / DLL files
@@ -43,7 +43,10 @@ coverage.xml
 # Log files
 *.log
 # Data directories
-data/
+data/research_papers/
 chroma_db/
+#Ignore langcgain academy directories
+langchain-academy/
+lc-academy-env/
 
 

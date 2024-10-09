@@ -23,7 +23,7 @@ vectorstore = Chroma(
 
 # Initialize Hugging Face LLM
 llm = HuggingFaceHub(
-    repo_id="google/flan-t5-large",  # Replace with your chosen model
+    repo_id="google/flan-t5-xxl",  # Replace with your chosen model
     model_kwargs={"temperature": 0.1, "max_length": 512},
     huggingfacehub_api_token=os.environ.get("HUGGINGFACEHUB_API_TOKEN")
 )
@@ -43,11 +43,13 @@ prompt = PromptTemplate(
     input_variables=["context", "question"]
 )
 
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
 # Create a retrieval chain
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
-    retriever=vectorstore.as_retriever(),
+    retriever=retriever,
     chain_type_kwargs={"prompt": prompt}
 )
 
