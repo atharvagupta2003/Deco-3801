@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Ignore virtual environment directories
 venv/
 env/
@@ -49,4 +50,9 @@ chroma_db/
 langchain-academy/
 lc-academy-env/
 
+=======
+data/
+preprocessed_data/
+venv/
+>>>>>>> 683e0d396c8f8712a2c8a22197c65e74060bd27b
 

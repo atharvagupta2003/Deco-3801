@@ -4,7 +4,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_chroma import Chroma
-from langchain.llms import HuggingFaceHub
+from langchain_ollama.llms import OllamaLLM
 
 load_dotenv()
 
@@ -21,11 +21,10 @@ vectorstore = Chroma(
     embedding_function=embeddings
 )
 
-# Initialize Hugging Face LLM
-llm = HuggingFaceHub(
-    repo_id="google/flan-t5-xxl",  # Replace with your chosen model
-    model_kwargs={"temperature": 0.1, "max_length": 512},
-    huggingfacehub_api_token=os.environ.get("HUGGINGFACEHUB_API_TOKEN")
+# Initialize Ollama LLM
+llm = OllamaLLM(
+    model="llama3.1",
+    temperature=0.1
 )
 
 
@@ -53,12 +52,14 @@ qa_chain = RetrievalQA.from_chain_type(
     chain_type_kwargs={"prompt": prompt}
 )
 
-
 # Function to perform retrieval and answer questions
-def ask_question(question): 
-    response = qa_chain.invoke(question)
-    return response
-
+def ask_question(question):
+    try:
+        response = qa_chain.invoke(question)
+        return response
+    except Exception as e:
+        print(f"Error while asking question: {str(e)}")
+        raise e
 
 # Main interaction loop
 if __name__ == "__main__":
