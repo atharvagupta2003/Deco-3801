@@ -221,32 +221,49 @@ def grade_generation(state):
 from langgraph.graph import StateGraph
 from IPython.display import Image, display
 
-workflow = StateGraph(GraphState)
+# Create a placeholder for the workflow and graph
+workflow = None
+graph = None
 
-# Define the nodes
-workflow.add_node("websearch", web_search)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
+# Function to setup the workflow
+def setup_workflow():
+    global workflow
+    global graph
 
-workflow.add_edge(START, "retrieve")
-workflow.add_conditional_edges(
-    "retrieve",
+    if workflow is None or graph is None:  # Only set up if not already initialized
+        workflow = StateGraph(GraphState)
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", generate)
 
-    route_question,
-    {"websearch": "websearch", "sequence generator": "generate"},
-)
-workflow.add_edge("websearch", "generate")
-workflow.add_conditional_edges(
-    "generate",
-    grade_generation,
-    {"useful": END,
-        "not useful": "retrieve"},
-)
-workflow.add_edge("generate", END)
+        workflow.add_edge(START, "retrieve")
+        workflow.add_conditional_edges(
+            "retrieve",
+            route_question,
+            {"websearch": "websearch", "sequence generator": "generate"},
+        )
+        workflow.add_edge("websearch", "generate")
+        workflow.add_conditional_edges(
+            "generate",
+            grade_generation,
+            {"useful": END, "not useful": "retrieve"},
+        )
+        workflow.add_edge("generate", END)
 
-graph = workflow.compile()
-display(Image(graph.get_graph().draw_mermaid_png()))
+        graph = workflow.compile()  # Compile the graph globally
+    return workflow, graph
 
-inputs = {"question": "steps for synthesis of carbon monoxide?"}
-for event in graph.stream(inputs, stream_mode="values"):
-    print(event)
+
+# Run this block only when graph.py is executed directly (not imported)
+if __name__ == "__main__":
+    workflow, graph = setup_workflow()  # Setup only when running directly
+    user_question = input("Please enter your question (or press Enter to use the default): ")
+    question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
+
+    inputs = {"question": question_to_ask}
+    for event in graph.stream(inputs, stream_mode="values"):
+        print(event)
+
+else:
+    # When imported, the workflow will only be setup when explicitly called, not during import.
+    setup_workflow()  # Make sure the graph is set up if needed
