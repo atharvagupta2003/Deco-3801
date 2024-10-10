@@ -22,8 +22,8 @@ from langchain_core.output_parsers import JsonOutputParser
 
 load_dotenv()
 
-llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
-llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, base_url = "https://integrate.api.nvidia.com/v1")
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, base_url = "https://integrate.api.nvidia.com/v1", format='json')
 
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
@@ -256,7 +256,7 @@ def web_search(state):
     # Perform Arxiv search
     arxiv_response = search_arxiv(question)
     if arxiv_response:
-        arxiv_results = "\n".join([result.page_content for result in arxiv_response])
+        arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
         if arxiv_results:
             arxiv_doc = Document(page_content=arxiv_results)
             documents.append(arxiv_doc)
@@ -264,7 +264,8 @@ def web_search(state):
     # Perform Wikipedia search
     wikipedia_response = search_wikipedia(question)
     if wikipedia_response:
-        wiki_results = wikipedia_response.get('content', 'No content available')
+        # Since wikipedia_response is likely a string, use it directly
+        wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
         if wiki_results:
             wiki_doc = Document(page_content=wiki_results)
             documents.append(wiki_doc)
@@ -274,9 +275,6 @@ def web_search(state):
         return {"documents": []}
     
     return {"documents": documents}
-
-
-
 
 
 # -----------Edges------------
@@ -381,7 +379,7 @@ def ask_question(question: str):
 
 
 def main():
-    question = "Chemical synthesis of Acetic Acid"
+    question = "Give me evolution timeline steps for amphibians"
     response = search_tavily(question)
     print(f"Tavily response for test query: {response}")
     result = ask_question(question)
