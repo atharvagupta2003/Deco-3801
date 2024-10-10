@@ -1,11 +1,9 @@
 {
-  "dockerfile_lines": [],
+  "dockerfile_lines": [
+  ],
   "graphs": {
     "graph": "./graph.py:graph"
   },
   "env": "./.env",
-  "python_version": "3.11",
-  "dependencies": [
-    "."
-  ]
+  "dependencies": ["."]
 }

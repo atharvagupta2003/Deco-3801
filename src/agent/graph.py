@@ -22,22 +22,28 @@ from langchain_core.output_parsers import JsonOutputParser
 
 load_dotenv()
 
-llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, base_url = "https://integrate.api.nvidia.com/v1")
-llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, base_url = "https://integrate.api.nvidia.com/v1", format='json')
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, api_key=os.getenv('nvidia_api_key'))
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json', api_key=os.getenv('nvidia_api_key'))
+
 
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
 
-The vector store contains the following {context} related to the user query.
+The vector store contains the following context related to the user query:
+{context}
 
-If the information in the vector store seems sufficient to answer the question route towards sequence generator to answer the question using vector store.
+If the information in the vector store seems sufficient to answer the question, route towards 'sequence generator' to answer the question using vector store.
 
-Else if the information seems insufficient or irrelevant to answer the question use the web search to find more information.
+Else if the information seems insufficient or irrelevant to answer the question, use 'websearch' to find more information.
 
-Return JSON with single key, datasource, that is 'websearch' or 'sequence generator' depending on the question.
+Provide the result as a JSON object with a single key 'datasource' and no preamble or explanation.
+
+Return the result as a JSON object like this:
+{{"datasource": "websearch"}} or {{"datasource": "sequence generator"}}.
 
 Question: {question}
 Answer:"""
+
 
 seq_generator_instructions = """
 You are an expert at reconstructing sequences for a user question.
@@ -326,6 +332,7 @@ def route_question(state):
         # Handle any other unexpected errors
         print(f"An unexpected error occurred: {e}")
         return "error"
+
 
 
 
