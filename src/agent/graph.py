@@ -14,6 +14,7 @@ from typing_extensions import TypedDict
 from typing import List, Annotated
 from langgraph.graph import StateGraph
 from IPython.display import Image, display
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 
@@ -201,6 +202,7 @@ def generate(state):
     documents = state["documents"]
     print(documents)
     # RAG generation
+
     docs_txt = " ".join([doc.page_content for doc in documents])
     seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
     generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
@@ -302,37 +304,71 @@ def decide_to_generate(state):
         print("---generate---")
         return "generate"
 
+# Create a placeholder for the workflow and graph
+workflow = None
+graph = None
 
-workflow = StateGraph(GraphState)
+# Function to setup the workflow
+def setup_workflow():
+    global workflow
+    global graph
 
-# Define the nodes
-workflow.add_node("websearch", web_search)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
-workflow.add_node("grade_documents", grade_documents)
+    if workflow is None or graph is None:  # Only set up if not already initialized
+        workflow = StateGraph(GraphState)
 
-workflow.add_edge(START, "retrieve")
-workflow.add_edge("retrieve", "grade_documents")
-workflow.add_conditional_edges(
-    "grade_documents",
-    decide_to_generate,
-    {
-        "search": "websearch",
-        "generate": "generate",
-    },
-)
-workflow.add_edge("websearch", "generate")
-workflow.add_conditional_edges(
-    "generate",
-    grade_generation,
-    {"useful": END,
-        "not useful": "retrieve"},
-)
-workflow.add_edge("generate", END)
+        # Adding the new nodes
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", generate)
+        workflow.add_node("grade_documents", grade_documents)
 
-graph = workflow.compile()
-display(Image(graph.get_graph().draw_mermaid_png()))
+        # Adding the edges as per the new workflow
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "grade_documents")
+        workflow.add_conditional_edges(
+            "grade_documents",
+            decide_to_generate,
+            {
+                "search": "websearch",
+                "generate": "generate",
+            },
+        )
+        workflow.add_edge("websearch", "generate")
+        workflow.add_conditional_edges(
+            "generate",
+            grade_generation,
+            {"useful": END, "not useful": "retrieve"},
+        )
+        workflow.add_edge("generate", END)
 
-# inputs = {"question": "major wars involved in world war 1"}
-# for event in graph.stream(inputs, stream_mode="values"):
-#     print(event)
+        # Adding memory and compiling the workflow
+        memory = MemorySaver()
+        graph = workflow.compile(checkpointer=memory)
+
+    return workflow, graph
+
+
+# Run this block only when graph.py is executed directly (not imported)
+if __name__ == "__main__":
+    workflow, graph = setup_workflow()  # Setup only when running directly
+    user_question = input("Please enter your question (or press Enter to use the default): ")
+    question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
+
+    inputs = {"question": question_to_ask}
+
+    # Updated configuration with additional keys
+    config = {
+        "configurable": {
+            "thread_id": "1",
+            "checkpoint_ns": "default_ns",
+            "checkpoint_id": "checkpoint_1"
+        }
+    }
+
+    # Streaming the events as per the new workflow
+    for event in graph.stream(inputs, stream_mode="values", config=config):
+        print(event)
+
+else:
+    # When imported, the workflow will only be setup when explicitly called, not during import.
+    setup_workflow()  # Make sure the graph is set up if needed# Make sure the graph is set up if needed
