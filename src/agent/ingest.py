@@ -4,7 +4,7 @@ from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings , ChatNVIDIA
 from langchain_chroma import Chroma
 import tiktoken
 

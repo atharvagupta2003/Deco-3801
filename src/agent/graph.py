@@ -3,9 +3,7 @@ from dotenv import load_dotenv
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
-from langchain_chroma import Chroma
-from langchain_ollama import ChatOllama
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from langchain.schema import Document
@@ -17,22 +15,28 @@ from typing import List, Annotated
 
 load_dotenv()
 
-llm = ChatOllama(model='llama3.1', temperature=0)
-llm_json_mode = ChatOllama(model='llama3.1', temperature=0, format='json')
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, api_key=os.getenv('LLAMA_API_KEY'))
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json', api_key=os.getenv('LLAMA_API_KEY'))
+
 
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
 
-The vector store contains the following {context} related to the user query.
+The vector store contains the following context related to the user query:
+{context}
 
-If the information in the vector store seems sufficient to answer the question route towards sequence generator to answer the question using vector store.
+If the information in the vector store seems sufficient to answer the question, route towards 'sequence generator' to answer the question using vector store.
 
-Else if the information seems insufficient or irrelevant to answer the question use the web search to find more information.
+Else if the information seems insufficient or irrelevant to answer the question, use 'websearch' to find more information.
 
-Return JSON with single key, datasource, that is 'websearch' or 'sequence generator' depending on the question.
+Provide the result as a JSON object with a single key 'datasource' and no preamble or explanation.
+
+Return the result as a JSON object like this:
+{{"datasource": "websearch"}} or {{"datasource": "sequence generator"}}.
 
 Question: {question}
 Answer:"""
+
 
 seq_generator_instructions = """
 You are an expert at reconstructing sequences for a user question.
@@ -188,12 +192,14 @@ def route_question(state):
         + [HumanMessage(content=state["question"])]
     )
     source = json.loads(route.content)["datasource"]
+    print(source)
     if source == "websearch":
         print("---ROUTE QUESTION TO WEB SEARCH---")
         return "websearch"
     elif source == "sequence generator":
         print("---ROUTE QUESTION TO RAG---")
         return "sequence generator"
+
 
 
 def grade_generation(state):
@@ -248,6 +254,6 @@ workflow.add_edge("generate", END)
 graph = workflow.compile()
 display(Image(graph.get_graph().draw_mermaid_png()))
 
-inputs = {"question": "steps for synthesis of carbon monoxide?"}
+inputs = {"question": "all wars of world war 2?"}
 for event in graph.stream(inputs, stream_mode="values"):
     print(event)
