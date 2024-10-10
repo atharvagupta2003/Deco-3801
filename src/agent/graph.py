@@ -355,7 +355,15 @@ if __name__ == "__main__":
     question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
 
     inputs = {"question": question_to_ask}
-    config = {"configurable": {"thread_id": "1"}}
+
+    # Updated configuration with additional keys
+    config = {
+        "configurable": {
+            "thread_id": "1",
+            "checkpoint_ns": "default_ns",
+            "checkpoint_id": "checkpoint_1"
+        }
+    }
 
     # Streaming the events as per the new workflow
     for event in graph.stream(inputs, stream_mode="values", config=config):
@@ -363,4 +371,4 @@ if __name__ == "__main__":
 
 else:
     # When imported, the workflow will only be setup when explicitly called, not during import.
-    setup_workflow()  # Make sure the graph is set up if needed
+    setup_workflow()  # Make sure the graph is set up if needed# Make sure the graph is set up if needed
