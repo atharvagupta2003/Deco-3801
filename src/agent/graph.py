@@ -3,9 +3,7 @@ from dotenv import load_dotenv
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA  
-from langchain_chroma import Chroma
-from langchain_ollama import ChatOllama
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from langchain.schema import Document
@@ -19,8 +17,9 @@ from langchain_core.output_parsers import JsonOutputParser
 
 load_dotenv()
 
-llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
-llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, api_key=os.getenv('LLAMA_API_KEY'))
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json', api_key=os.getenv('LLAMA_API_KEY'))
+
 
 router_instructions = """
 You are an expert at routing a user question to a sequence generator or web search.
