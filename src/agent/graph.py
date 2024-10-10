@@ -14,6 +14,7 @@ from typing_extensions import TypedDict
 from typing import List, Annotated
 from langgraph.graph import StateGraph
 from IPython.display import Image, display
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 
@@ -201,6 +202,7 @@ def generate(state):
     documents = state["documents"]
     print(documents)
     # RAG generation
+
     docs_txt = " ".join([doc.page_content for doc in documents])
     seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
     generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
@@ -330,9 +332,10 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("generate", END)
 
-graph = workflow.compile()
+memory = MemorySaver()
+graph = workflow.compile(checkpointer=memory)
 display(Image(graph.get_graph().draw_mermaid_png()))
-
+config = {"configurable": {"thread_id": "1"}}
 # inputs = {"question": "major wars involved in world war 1"}
-# for event in graph.stream(inputs, stream_mode="values"):
+# for event in graph.stream(inputs, stream_mode="values", config=config):
 #     print(event)
