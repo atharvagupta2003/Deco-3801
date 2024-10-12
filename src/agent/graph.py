@@ -11,6 +11,7 @@ from web_scrapers.search_tool_arxiv import ArxivSearchTool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from web_scrapers.search_tool_arxiv import *
 
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
 from langgraph.graph import StateGraph
@@ -18,60 +19,79 @@ from src.agent.ingest import retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
-from langchain_core.output_parsers import JsonOutputParser
+from langgraph.graph import StateGraph
+from IPython.display import Image, display
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 
-llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, api_key=os.getenv('nvidia_api_key'))
-llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json', api_key=os.getenv('nvidia_api_key'))
-
-
-router_instructions = """
-You are an expert at routing a user question to a sequence generator or web search.
-
-The vector store contains the following context related to the user query:
-{context}
-
-If the information in the vector store seems sufficient to answer the question, route towards 'sequence generator' to answer the question using vector store.
-
-Else if the information seems insufficient or irrelevant to answer the question, use 'websearch' to find more information.
-
-Provide the result as a JSON object with a single key 'datasource' and no preamble or explanation.
-
-Return the result as a JSON object like this:
-{{"datasource": "websearch"}} or {{"datasource": "sequence generator"}}.
-
-Question: {question}
-Answer:"""
-
+llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
+llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
 
 seq_generator_instructions = """
-You are an expert at reconstructing sequences for a user question.
+You are an expert at reconstructing sequences based on user questions.
 
-Answer the user question based on the {context}
+Using the provided {context}, answer the user's question in a step-by-step format.
 
-Only give the answer nothing else.
+Structure your answer as follows:
+Step 1:
+Step 2:
+Step 3:
+...
 
-Always give the source with the answer.
-
-Your answer should be in steps such as step1: /n step2: /n step3: .... 
-
-Include an explanation of every step and if any reaction is involved.
+**Important Instructions:**
+- **If timeline reconstruction is involved, present each event in a separate step, sequenced based on the date of the event,
+    with the date included and a brief explanation.**
+- **Always include the source with your answer.**
+- **Ensure that reactions are presented in their particular order, with explanations for each.**
+- **Include an explanation for each step and any reactions involved.**
 
 Question: {question}
 Answer:"""
 
 prompt = PromptTemplate(
-    template="""You are a grader assessing whether an answer is useful to resolve a question. \n 
+    template="""You are a grader assessing whether an answer is useful to resolve a question. \n
     Here is the answer:
     \n ------- \n
-    {generation} 
+    {generation}
     \n ------- \n
     Here is the question: {question}
     Give a binary score 'yes' or 'no' to indicate whether the answer is useful to resolve a question. \n
-    Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.""",
+    Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.
+    your output should always be a json with no explanations""",
+
     input_variables=["generation", "question"],
 )
+
+# prompt = PromptTemplate(
+#     template="""You are a grader assessing whether an answer is useful to resolve a question and follows the required format.
+#
+# Here is the answer:
+# -------
+# {generation}
+# -------
+# Here is the question: {question}
+#
+# The answer should always follow this specific format:
+# - The answer should be presented in a step-by-step manner:
+#   Step 1:
+#   Step 2:
+#   Step 3:
+#   ...
+#
+# - If timeline reconstruction is involved, each event should be listed in a separate step, sequenced based on the date of the event, with the date included and a brief explanation.
+#
+# - The answer should always include the source with each step.
+#
+# - Reactions should be presented in their correct order, with explanations for each.
+#
+# Assess if the answer follows this format and whether it is useful to resolve the question.
+#
+# Give a binary score 'yes' or 'no' to indicate whether the answer is both useful and follows the format.
+# Provide the binary score as a JSON with a single key 'score' and no preamble or explanation. Your output should always be a JSON with no explanations.""",
+#
+#     input_variables=["generation", "question"],
+# )
 
 answer_grader = prompt | llm_json_mode | JsonOutputParser()
 
@@ -94,8 +114,67 @@ prompt = PromptTemplate(
     input_variables=["question", "tools_list"]
 )
 
+grader_prompt = PromptTemplate(
+    template="""You are a teacher grading a quiz. You will be given: 
+1/ a QUESTION
+2/ A FACT provided by the student
+
+You are grading RELEVANCE RECALL:
+A score of 1 means that ANY of the statements in the FACT are relevant to the QUESTION. 
+A score of 0 means that NONE of the statements in the FACT are relevant to the QUESTION. 
+1 is the highest (best) score. 0 is the lowest score you can give.
+
+**Important Instructions:**
+- **Do not provide any explanations or reasoning in your final answer.**
+- **Do not include any preamble or additional text.**
+- **Only output the binary score as a JSON with a single key 'score'.**
+
+**Example 1:**
+
+Question:
+What is the capital city of France?
+
+Fact:
+Paris is known for its art, gastronomy, and culture.
+
+Provide the binary score as a JSON with a single key 'score' and nothing else.
+
+**Example Output:**
+{{"score": 1}}
+
+**Example 2:**
+
+Question:
+What is the boiling point of water?
+
+Fact:
+The Great Wall of China is visible from space.
+
+Provide the binary score as a JSON with a single key 'score' and nothing else.
+
+**Example Output:**
+{{"score": 0}}
+
+---
+
+Now, please evaluate the following:
+
+Question:
+{question}
+
+Fact:
+{documents}
+
+Provide the binary score as a JSON with a single key 'score' and nothing else.
+""",
+    input_variables=["question", "documents"],
+)
+
+
+retrieval_grader = grader_prompt | llm_json_mode | JsonOutputParser()
+
 web_search_tool = TavilySearchResults(
-    max_results=5,
+    max_results=10,
     search_depth="advanced",
     include_answer=True,
     include_raw_content=True,
@@ -229,8 +308,9 @@ def generate(state):
     print("---GENERATE---")
     question = state["question"]
     documents = state["documents"]
-
+    print(documents)
     # RAG generation
+
     docs_txt = " ".join([doc.page_content for doc in documents])
     seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
     generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
@@ -282,59 +362,38 @@ def web_search(state):
     
     return {"documents": documents}
 
-
-# -----------Edges------------
-import json
-import re
-
-def route_question(state):
+def grade_documents(state):
     """
-    Route question to web search or sequence generator.
+    Determines whether the retrieved documents are relevant to the question.
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        state (dict): Updates documents key with only filtered relevant documents
     """
-    print("---ROUTE QUESTION---")
+
     question = state["question"]
     documents = state["documents"]
-    context = " ".join([doc.page_content for doc in documents])
-
-    router_instructions_formatted = router_instructions.format(question=question, context=context)
-    
-    try:
-        # Invoke the LLM to route the question
-        route = llm_json_mode.invoke(
-            [SystemMessage(content=router_instructions_formatted)]
-            + [HumanMessage(content=state["question"])]
+    filtered_docs = []
+    search = "No"
+    for d in documents:
+        score = retrieval_grader.invoke(
+            {"question": question, "documents": d.page_content}
         )
-
-        # Extract the JSON part from the response
-        json_match = re.search(r'{.*}', route.content, re.DOTALL)
-        if json_match:
-            json_content = json.loads(json_match.group(0))
+        grade = score["score"]
+        if grade == "yes" or grade == 1 or grade == "1":
+            filtered_docs.append(d)
         else:
-            raise ValueError(f"Invalid JSON received: {route.content}")
+            search = "Yes"
+            continue
+    return {
+        "documents": filtered_docs,
+        "question": question,
+        "search": search,
+    }
 
-        # Check the 'datasource' key in the JSON response
-        source = json_content.get("datasource", None)
-        if source == "websearch":
-            print("---ROUTE QUESTION TO WEB SEARCH---")
-            return "websearch"
-        elif source == "sequence generator":
-            print("---ROUTE QUESTION TO SEQUENCE GENERATOR---")
-            return "sequence generator"
-        else:
-            raise ValueError(f"Invalid datasource in JSON: {route.content}")
-
-    except ValueError as e:
-        # Handle invalid or missing JSON issues
-        print(f"Error decoding JSON from LLM response: {e}")
-        return "error"
-    
-    except Exception as e:
-        # Handle any other unexpected errors
-        print(f"An unexpected error occurred: {e}")
-        return "error"
-
-
-
+# -----------Edges------------
 
 def grade_generation(state):
     """
@@ -358,40 +417,89 @@ def grade_generation(state):
         print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
         return "not useful"
 
+def decide_to_generate(state):
+    """
+    Determines whether to generate an answer, or re-generate a question.
 
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        str: Binary decision for next node to call
+    """
+    search = state["search"]
+    if search == "Yes":
+        print("---Web search---")
+        return "search"
+    else:
+        print("---generate---")
+        return "generate"
+
+# Create a placeholder for the workflow and graph
+workflow = None
+graph = None
+
+# Function to setup the workflow
 def setup_workflow():
-    workflow = StateGraph(GraphState)
+    global workflow
+    global graph
 
-    workflow.add_node("websearch", web_search)
-    workflow.add_node("retrieve", retrieve)
-    workflow.add_node("generate", generate)
+    if workflow is None or graph is None:  # Only set up if not already initialized
+        workflow = StateGraph(GraphState)
 
-    workflow.add_edge(START, "retrieve")
-    workflow.add_conditional_edges("retrieve", route_question, {"websearch": "websearch", "sequence generator": "generate"})
-    workflow.add_edge("websearch", "generate")
-    workflow.add_conditional_edges("generate", grade_generation, {"useful": END, "not useful": "retrieve"})
-    workflow.add_edge("generate", END)
+        # Adding the new nodes
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", generate)
+        workflow.add_node("grade_documents", grade_documents)
 
-    return workflow
+        # Adding the edges as per the new workflow
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "grade_documents")
+        workflow.add_conditional_edges(
+            "grade_documents",
+            decide_to_generate,
+            {
+                "search": "websearch",
+                "generate": "generate",
+            },
+        )
+        workflow.add_edge("websearch", "generate")
+        workflow.add_conditional_edges(
+            "generate",
+            grade_generation,
+            {"useful": END, "not useful": "retrieve"},
+        )
+        workflow.add_edge("generate", END)
+
+        # Adding memory and compiling the workflow
+        memory = MemorySaver()
+        graph = workflow.compile(checkpointer=memory)
+
+    return workflow, graph
 
 
-def ask_question(question: str):
-    workflow = setup_workflow()
-    inputs = {"question": question}
-    events = []
-
-    for event in workflow.compile().stream(inputs, stream_mode="values"):
-        events.append(event)
-    return events
-
-
-def main():
-    question = "Give me evolution timeline steps for amphibians"
-    response = search_tavily(question)
-    print(f"Tavily response for test query: {response}")
-    result = ask_question(question)
-    print(result)
-
-
+# Run this block only when graph.py is executed directly (not imported)
 if __name__ == "__main__":
-    main()
+    workflow, graph = setup_workflow()  # Setup only when running directly
+    user_question = input("Please enter your question (or press Enter to use the default): ")
+    question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
+
+    inputs = {"question": question_to_ask}
+
+    # Updated configuration with additional keys
+    config = {
+        "configurable": {
+            "thread_id": "1",
+            "checkpoint_ns": "default_ns",
+            "checkpoint_id": "checkpoint_1"
+        }
+    }
+
+    # Streaming the events as per the new workflow
+    for event in graph.stream(inputs, stream_mode="values", config=config):
+        print(event)
+
+else:
+    # When imported, the workflow will only be setup when explicitly called, not during import.
+    setup_workflow()  # Make sure the graph is set up if needed# Make sure the graph is set up if needed
