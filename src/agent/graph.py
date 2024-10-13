@@ -196,7 +196,7 @@ web_scrapers = [
 # Format the tools list as a string for the prompt
 tools_list = "\n".join([f"{i+1}. {scraper['name']}: {scraper['description']}" for i, scraper in enumerate(web_scrapers)])
 
-# Callable for Tavily
+## Callable for Tavily
 def search_tavily(query):
     """
     Perform a search using Tavily API and return the response.
@@ -204,20 +204,27 @@ def search_tavily(query):
     try:
         # Ensure the query is well-formed for Tavily
         response = web_search_tool.invoke({"query": query})
-        
+
         # Debug the raw response
         print(f"Raw Tavily API response: {response}")
-        
-        # Parse the response if valid
-        if response and isinstance(response, dict):
-            return response
+
+        # Check if the response is a list and contains results
+        if response and isinstance(response, list) and len(response) > 0:
+            # The response is a list of results with 'url', 'content', etc.
+            combined_results = "\n".join([result.get('content', 'No content available') for result in response])
+            if combined_results:
+                return combined_results  # Return the combined content
+            else:
+                print("No relevant content found in Tavily results.")
+                return None
         else:
-            print("Tavily API returned an unexpected response format.")
+            print("Tavily API returned an empty list or an unexpected format.")
             return None
-    
+
     except Exception as e:
         print(f"Error during Tavily API call: {e}")
         return None
+
     
 # Callable for Arxiv
 def search_arxiv(query):
@@ -319,48 +326,143 @@ def generate(state):
 
 import json
 
+# Helper function to get user-selected search tool
+def get_user_search_tool():
+    # Present the options to the user
+    print("Select a search tool by entering the corresponding number:")
+    print("1. Tavily")
+    print("2. Arxiv")
+    print("3. Wikipedia")
+    print("If the selected tool doesn't return good results, the system will automatically try other tools.")
+
+    # Get user's choice
+    choice = input("Enter your choice (1/2/3): ")
+
+    # Map user choice to the tool name
+    if choice == "1":
+        return "Tavily"
+    elif choice == "2":
+        return "Arxiv"
+    elif choice == "3":
+        return "Wikipedia"
+    else:
+        print("Invalid choice, defaulting to Tavily.")
+        return "Tavily"
+
+# Modified web_search function
 def web_search(state):
     """
-    Perform web search using selected tools and return the results.
+    Perform web search using the user-selected tool first, and fallback to others if needed.
     """
     print("---WEB SEARCH---")
     question = state["question"]
-    
     documents = state.get("documents", [])
-    
-    # Perform Tavily search
-    tavily_response = search_tavily(question)
-    if tavily_response and 'results' in tavily_response:
-        tavily_results = tavily_response.get('results', [])
-        combined_results = "\n".join([result.get('content', 'No content available') for result in tavily_results])
-        if combined_results:
-            web_results_doc = Document(page_content=combined_results)
-            documents.append(web_results_doc)
-        else:
-            print("No relevant content found in Tavily response.")
-    
-    # Perform Arxiv search
-    arxiv_response = search_arxiv(question)
-    if arxiv_response:
-        arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
-        if arxiv_results:
-            arxiv_doc = Document(page_content=arxiv_results)
-            documents.append(arxiv_doc)
 
-    # Perform Wikipedia search
-    wikipedia_response = search_wikipedia(question)
-    if wikipedia_response:
-        # Since wikipedia_response is likely a string, use it directly
-        wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
-        if wiki_results:
-            wiki_doc = Document(page_content=wiki_results)
-            documents.append(wiki_doc)
+    # Step 1: Get the user's search tool choice
+    selected_tool = get_user_search_tool()
+
+    # Step 2: Try the selected tool first
+    if selected_tool == "Tavily":
+        tavily_response = search_tavily(question)
+        if tavily_response:
+            web_results_doc = Document(page_content=tavily_response)
+            documents.append(web_results_doc)
+            print("Tavily returned results.")
+        else:
+            print("Tavily failed to return results.")
     
+    elif selected_tool == "Arxiv":
+        arxiv_response = search_arxiv(question)
+        if arxiv_response:
+            arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
+            if arxiv_results:
+                arxiv_doc = Document(page_content=arxiv_results)
+                documents.append(arxiv_doc)
+                print("Arxiv returned results.")
+        else:
+            print("Arxiv failed to return results.")
+
+    elif selected_tool == "Wikipedia":
+        wikipedia_response = search_wikipedia(question)
+        if wikipedia_response:
+            wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
+            if wiki_results:
+                wiki_doc = Document(page_content=wiki_results)
+                documents.append(wiki_doc)
+                print("Wikipedia returned results.")
+        else:
+            print("Wikipedia failed to return results.")
+
+    # Step 3: Fallback if no results from the selected tool
+    if not documents:
+        print(f"No results from the selected tool '{selected_tool}', falling back to other tools.")
+
+        # Fallback order: if Tavily was selected, try Arxiv and Wikipedia
+        if selected_tool == "Tavily":
+            # Try Arxiv next
+            arxiv_response = search_arxiv(question)
+            if arxiv_response:
+                arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
+                if arxiv_results:
+                    arxiv_doc = Document(page_content=arxiv_results)
+                    documents.append(arxiv_doc)
+                    print("Fallback to Arxiv returned results.")
+            
+            # If still no results, try Wikipedia
+            if not documents:
+                wikipedia_response = search_wikipedia(question)
+                if wikipedia_response:
+                    wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
+                    if wiki_results:
+                        wiki_doc = Document(page_content=wiki_results)
+                        documents.append(wiki_doc)
+                        print("Fallback to Wikipedia returned results.")
+
+        # If Arxiv was selected, try Wikipedia and then Tavily
+        elif selected_tool == "Arxiv":
+            # Try Wikipedia next
+            wikipedia_response = search_wikipedia(question)
+            if wikipedia_response:
+                wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
+                if wiki_results:
+                    wiki_doc = Document(page_content=wiki_results)
+                    documents.append(wiki_doc)
+                    print("Fallback to Wikipedia returned results.")
+            
+            # If still no results, try Tavily
+            if not documents:
+                tavily_response = search_tavily(question)
+                if tavily_response:
+                    web_results_doc = Document(page_content=tavily_response)
+                    documents.append(web_results_doc)
+                    print("Fallback to Tavily returned results.")
+
+        # If Wikipedia was selected, try Tavily and then Arxiv
+        elif selected_tool == "Wikipedia":
+            # Try Tavily next
+            tavily_response = search_tavily(question)
+            if tavily_response:
+                web_results_doc = Document(page_content=tavily_response)
+                documents.append(web_results_doc)
+                print("Fallback to Tavily returned results.")
+            
+            # If still no results, try Arxiv
+            if not documents:
+                arxiv_response = search_arxiv(question)
+                if arxiv_response:
+                    arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
+                    if arxiv_results:
+                        arxiv_doc = Document(page_content=arxiv_results)
+                        documents.append(arxiv_doc)
+                        print("Fallback to Arxiv returned results.")
+
+    # If no documents were found, return an empty list
     if not documents:
         print("No results found from any search tool.")
         return {"documents": []}
     
     return {"documents": documents}
+
 
 def grade_documents(state):
     """

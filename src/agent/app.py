@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 import os
 import logging
 from flask_cors import CORS
-from graph import setup_workflow
-from graph import workflow, graph
+from src.agent.graph import setup_workflow
+from src.agent.graph import workflow, graph
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
