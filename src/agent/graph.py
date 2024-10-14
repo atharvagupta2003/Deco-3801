@@ -335,7 +335,7 @@ workflow.add_edge("generate", END)
 memory = MemorySaver()
 graph = workflow.compile(checkpointer=memory)
 display(Image(graph.get_graph().draw_mermaid_png()))
-config = {"configurable": {"thread_id": "1"}}
+# config = {"configurable": {"thread_id": "1"}}
 # inputs = {"question": "major wars involved in world war 1"}
 # for event in graph.stream(inputs, stream_mode="values", config=config):
 #     print(event)
