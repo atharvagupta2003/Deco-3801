@@ -8,8 +8,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
-from langgraph.graph import StateGraph
-from src.agent.ingest import get_retriever  # Updated import
+from src.agent.ingest import get_retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
@@ -57,6 +56,36 @@ prompt = PromptTemplate(
 
     input_variables=["generation", "question"],
 )
+
+# prompt = PromptTemplate(
+#     template="""You are a grader assessing whether an answer is useful to resolve a question and follows the required format.
+#
+# Here is the answer:
+# -------
+# {generation}
+# -------
+# Here is the question: {question}
+#
+# The answer should always follow this specific format:
+# - The answer should be presented in a step-by-step manner:
+#   Step 1:
+#   Step 2:
+#   Step 3:
+#   ...
+#
+# - If timeline reconstruction is involved, each event should be listed in a separate step, sequenced based on the date of the event, with the date included and a brief explanation.
+#
+# - The answer should always include the source with each step.
+#
+# - Reactions should be presented in their correct order, with explanations for each.
+#
+# Assess if the answer follows this format and whether it is useful to resolve the question.
+#
+# Give a binary score 'yes' or 'no' to indicate whether the answer is both useful and follows the format.
+# Provide the binary score as a JSON with a single key 'score' and no preamble or explanation. Your output should always be a JSON with no explanations.""",
+#
+#     input_variables=["generation", "question"],
+# )
 
 answer_grader = prompt | llm_json_mode | JsonOutputParser()
 
@@ -133,17 +162,17 @@ class GraphState(TypedDict):
     """
     Graph state is a dictionary that contains information we want to propagate to, and modify in, each graph node.
     """
+
     question: str
     generation: str
     web_search: str
     documents: List[str]
-    vector_db_choice: str
 
 
 # -----------Nodes------------
 def retrieve(state):
     """
-    Retrieve documents from the selected vectorstore
+    Retrieve documents from vectorstore
 
     Args:
         state (dict): The current graph state
@@ -153,9 +182,6 @@ def retrieve(state):
     """
     print("---RETRIEVE---")
     question = state["question"]
-
-    vector_db_choice = state.get('vector_db_choice', 'Wiki')  # Default to 'Wiki' if not specified
-    retriever = get_retriever(vector_db_choice)
 
     documents = retriever.invoke(question)
     return {"documents": documents}
@@ -278,92 +304,38 @@ def decide_to_generate(state):
         print("---generate---")
         return "generate"
 
-# Create a placeholder for the workflow and graph
-workflow = None
-graph = None
 
-# Function to setup the workflow
-def setup_workflow():
-    global workflow
-    global graph
+workflow = StateGraph(GraphState)
 
-    if workflow is None or graph is None:  # Only set up if not already initialized
-        workflow = StateGraph(GraphState)
+# Define the nodes
+workflow.add_node("websearch", web_search)
+workflow.add_node("retrieve", retrieve)
+workflow.add_node("generate", generate)
+workflow.add_node("grade_documents", grade_documents)
 
-        # Adding the new nodes
-        workflow.add_node("websearch", web_search)
-        workflow.add_node("retrieve", retrieve)
-        workflow.add_node("generate", generate)
-        workflow.add_node("grade_documents", grade_documents)
+workflow.add_edge(START, "retrieve")
+workflow.add_edge("retrieve", "grade_documents")
+workflow.add_conditional_edges(
+    "grade_documents",
+    decide_to_generate,
+    {
+        "search": "websearch",
+        "generate": "generate",
+    },
+)
+workflow.add_edge("websearch", "generate")
+workflow.add_conditional_edges(
+    "generate",
+    grade_generation,
+    {"useful": END,
+        "not useful": "retrieve"},
+)
+workflow.add_edge("generate", END)
 
-        # Adding the edges as per the new workflow
-        workflow.add_edge(START, "retrieve")
-        workflow.add_edge("retrieve", "grade_documents")
-        workflow.add_conditional_edges(
-            "grade_documents",
-            decide_to_generate,
-            {
-                "search": "websearch",
-                "generate": "generate",
-            },
-        )
-        workflow.add_edge("websearch", "generate")
-        workflow.add_conditional_edges(
-            "generate",
-            grade_generation,
-            {"useful": END, "not useful": "retrieve"},
-        )
-        workflow.add_edge("generate", END)
-
-        # Adding the edges as per the new workflow
-        workflow.add_edge(START, "retrieve")
-        workflow.add_edge("retrieve", "grade_documents")
-        workflow.add_conditional_edges(
-            "grade_documents",
-            decide_to_generate,
-            {
-                "search": "websearch",
-                "generate": "generate",
-            },
-        )
-        workflow.add_edge("websearch", "generate")
-        workflow.add_conditional_edges(
-            "generate",
-            grade_generation,
-            {"useful": END, "not useful": "retrieve"},
-        )
-        workflow.add_edge("generate", END)
-
-        # Adding memory and compiling the workflow
-        memory = MemorySaver()
-        graph = workflow.compile(checkpointer=memory)
-
-    return workflow, graph
-
-
-# Run this block only when graph.py is executed directly (not imported)
-if __name__ == "__main__":
-    workflow, graph = setup_workflow()  # Setup only when running directly
-    user_question = input("Please enter your question (or press Enter to use the default): ")
-    question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
-    vector_db_choice = input("Please enter the vector database (Wiki/ArXiv/Custom): ")
-    vector_db_choice = vector_db_choice if vector_db_choice else "Wiki"
-
-    inputs = {"question": question_to_ask, "vector_db_choice": vector_db_choice}
-
-    # Updated configuration with additional keys
-    config = {
-        "configurable": {
-            "thread_id": "1",
-            "checkpoint_ns": "default_ns",
-            "checkpoint_id": "checkpoint_1"
-        }
-    }
-
-    # Streaming the events as per the new workflow
-    for event in graph.stream(inputs, stream_mode="values", config=config):
-        print(event)
-
-else:
-    # When imported, the workflow will only be setup when explicitly called, not during import.
-    setup_workflow()  # Make sure the graph is set up if needed
+memory = MemorySaver()
+graph = workflow.compile(checkpointer=memory)
+display(Image(graph.get_graph().draw_mermaid_png()))
+# config = {"configurable": {"thread_id": "1"}}
+# inputs = {"question": "major wars involved in world war 1"}
+# for event in graph.stream(inputs, stream_mode="values", config=config):
+#     print(event)
