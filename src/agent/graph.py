@@ -172,7 +172,7 @@ class GraphState(TypedDict):
 # -----------Nodes------------
 def retrieve(state):
     """
-    Retrieve documents from vectorstore
+    Retrieve documents from the selected vectorstore
 
     Args:
         state (dict): The current graph state
@@ -183,7 +183,10 @@ def retrieve(state):
     print("---RETRIEVE---")
     question = state["question"]
 
-    documents = get_retriever.invoke(question)
+    vector_db_choice = state.get('vector_db_choice', 'Wiki')  # Default to 'Wiki' if not specified
+    retriever = get_retriever(vector_db_choice)
+
+    documents = retriever.invoke(question)
     return {"documents": documents}
 
 
