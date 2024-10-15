@@ -3,7 +3,6 @@ import streamlit as st
 import os
 import time
 
-
 # Function to check server health
 def check_server_health():
     try:
@@ -11,7 +10,6 @@ def check_server_health():
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
-
 
 def load_css(file_name):
     with open(file_name) as f:
@@ -27,7 +25,6 @@ def file_upload_progress(files):
         st.write(f"Processing {file.name} ...")
         progress_bar.progress((i + 1) / total_files)
 
-
 # Initialize session state variables
 if "answer" not in st.session_state:
     st.session_state.answer = ""
@@ -35,7 +32,8 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
 if "query" not in st.session_state:
     st.session_state.query = ""
-
+if "selected_vector_db" not in st.session_state:
+    st.session_state.selected_vector_db = "Wiki"  # Default value
 
 def main():
     # Set Streamlit page configuration
@@ -49,7 +47,6 @@ def main():
     # Load the external CSS file
     css_file = os.path.join(os.path.dirname(__file__), "styles.css")
     load_css(css_file)
-
 
     # NVIDIA logo
     st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">',
@@ -69,30 +66,34 @@ def main():
     with tabs[0]:
         st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
 
+        # Vector Database Selection
+        st.markdown('<h4>Select Vector Database</h4>', unsafe_allow_html=True)
+        vector_db_options = ['Wiki', 'ArXiv', 'Custom']
+        selected_vector_db = st.selectbox('Select Vector Database', vector_db_options)
+        st.session_state.selected_vector_db = selected_vector_db  # Store the selected option in session state
 
-        uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
+        # File uploader for 'Custom' vector database
+        if selected_vector_db == 'Custom':
+            st.markdown('<h4>Upload Your Documents</h4>', unsafe_allow_html=True)
+            uploaded_files = st.file_uploader("Upload your documents (txt, pdf, csv)", type=['txt', 'csv', 'pdf'], accept_multiple_files=True)
+            if uploaded_files:
+                st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
 
-        if uploaded_files:
-            st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
-
-            # Display file details
-            for file in uploaded_files:
-                st.write(f"File: {file.name}, Size: {file.size} bytes")
-
-            if st.button("Process Files"):
-                file_upload_progress(uploaded_files)  # Show progress bar for file uploads
-                try:
-                    files = [('files[]', file) for file in uploaded_files]
-                    with st.spinner("Processing files..."):
-                        response = requests.post('http://localhost:5050/upload', files=files)
-
-                    if response.status_code == 200:
-                        st.success("Files uploaded and processed successfully!")
-                    else:
-                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
-                        st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Error connecting to the server: {str(e)}")
+                if st.button("Process Files"):
+                    file_upload_progress(uploaded_files)  # Show progress bar for file uploads
+                    try:
+                        files = [('files', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
+                        with st.spinner("Processing files..."):
+                            response = requests.post('http://localhost:5050/upload', files=files)
+                        if response.status_code == 200:
+                            st.success("Files uploaded and processed successfully!")
+                        else:
+                            error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                            st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Error connecting to the server: {str(e)}")
+            else:
+                st.warning("Please upload documents to use the Custom vector database.")
 
         # Query input for document Q&A
         query = st.text_input("Enter your query for sequence reconstruction:")
@@ -101,9 +102,15 @@ def main():
             if query:
                 st.session_state.query = query  # Store query in session state
                 try:
-                    # Send the question to the Flask backend
+                    # Send the question and selected vector database to the Flask backend
                     with st.spinner("Generating answer..."):
-                        response = requests.post('http://localhost:5050/ask', json={'question': query})
+                        response = requests.post(
+                            'http://localhost:5050/ask',
+                            json={
+                                'question': query,
+                                'vector_db': st.session_state.selected_vector_db
+                            }
+                        )
 
                     if response.status_code == 200:
                         st.session_state.answer = response.json()['answer']  # Store answer in session state
@@ -147,7 +154,6 @@ def main():
     with tabs[2]:
         st.header("Gap Identification")
         st.write("Gap Identification content goes here.")
-
 
 if __name__ == "__main__":
     main()
