@@ -183,7 +183,7 @@ def retrieve(state):
     print("---RETRIEVE---")
     question = state["question"]
 
-    documents = retriever.invoke(question)
+    documents = get_retriever.invoke(question)
     return {"documents": documents}
 
 
