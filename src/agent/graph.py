@@ -305,33 +305,42 @@ def decide_to_generate(state):
         print("---generate---")
         return "generate"
 
+# Create a placeholder for the workflow and graph
+workflow = None
+graph = None
 
-workflow = StateGraph(GraphState)
+# Function to setup the workflow
+def setup_workflow():
+    global workflow
+    global graph
 
-# Define the nodes
-workflow.add_node("websearch", web_search)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
-workflow.add_node("grade_documents", grade_documents)
+    if workflow is None or graph is None:  # Only set up if not already initialized
+        workflow = StateGraph(GraphState)
 
-workflow.add_edge(START, "retrieve")
-workflow.add_edge("retrieve", "grade_documents")
-workflow.add_conditional_edges(
-    "grade_documents",
-    decide_to_generate,
-    {
-        "search": "websearch",
-        "generate": "generate",
-    },
-)
-workflow.add_edge("websearch", "generate")
-workflow.add_conditional_edges(
-    "generate",
-    grade_generation,
-    {"useful": END,
-        "not useful": "retrieve"},
-)
-workflow.add_edge("generate", END)
+        # Adding the new nodes
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", generate)
+        workflow.add_node("grade_documents", grade_documents)
+
+        # Adding the edges as per the new workflow
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "grade_documents")
+        workflow.add_conditional_edges(
+            "grade_documents",
+            decide_to_generate,
+            {
+                "search": "websearch",
+                "generate": "generate",
+            },
+        )
+        workflow.add_edge("websearch", "generate")
+        workflow.add_conditional_edges(
+            "generate",
+            grade_generation,
+            {"useful": END, "not useful": "retrieve"},
+        )
+        workflow.add_edge("generate", END)
 
 memory = MemorySaver()
 graph = workflow.compile(checkpointer=memory)
