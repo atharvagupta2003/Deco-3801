@@ -9,8 +9,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
 from langgraph.graph import StateGraph
-from src.agent.ingest import retriever
-from ingest import get_retriever  # Updated import
+from src.agent.ingest import get_retriever  # Updated import
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated

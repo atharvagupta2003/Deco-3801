@@ -2,9 +2,9 @@ from flask import Flask, request, jsonify
 import os
 import logging
 from flask_cors import CORS
-from graph import setup_workflow
-from graph import workflow, graph
-from ingest import create_custom_vectorstore  # Import this function
+from src.agent.graph import setup_workflow
+from src.agent.graph import workflow, graph
+from src.agent.ingest import create_custom_vectorstore  # Import this function
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
