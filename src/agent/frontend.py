@@ -21,7 +21,7 @@ def file_upload_progress(files):
     total_files = len(files)
 
     for i, file in enumerate(files):
-        time.sleep(1)  # Simulate upload time
+        time.sleep(0.5)  # Simulate upload time
         st.write(f"Processing {file.name} ...")
         progress_bar.progress((i + 1) / total_files)
 
@@ -32,8 +32,8 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
 if "query" not in st.session_state:
     st.session_state.query = ""
-if "selected_vector_db" not in st.session_state:
-    st.session_state.selected_vector_db = "Wiki"  # Default value
+if "vector_db_choice" not in st.session_state:
+    st.session_state.vector_db_choice = "Wiki"  # Default choice
 
 def main():
     # Set Streamlit page configuration
@@ -61,39 +61,43 @@ def main():
         st.stop()
 
     # Navigation tabs without icons
-    tabs = st.tabs(["Home", "Visualization", "Gap Identification"])
+    tabs = st.tabs(["Home", "Visualization"])
 
     with tabs[0]:
         st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
 
-        # Vector Database Selection
-        st.markdown('<h4>Select Vector Database</h4>', unsafe_allow_html=True)
-        vector_db_options = ['Wiki', 'ArXiv', 'Custom']
-        selected_vector_db = st.selectbox('Select Vector Database', vector_db_options)
-        st.session_state.selected_vector_db = selected_vector_db  # Store the selected option in session state
+        # File uploader
+        uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
 
-        # File uploader for 'Custom' vector database
-        if selected_vector_db == 'Custom':
-            st.markdown('<h4>Upload Your Documents</h4>', unsafe_allow_html=True)
-            uploaded_files = st.file_uploader("Upload your documents (txt, pdf, csv)", type=['txt', 'csv', 'pdf'], accept_multiple_files=True)
-            if uploaded_files:
-                st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
+        if uploaded_files:
+            st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
 
-                if st.button("Process Files"):
-                    file_upload_progress(uploaded_files)  # Show progress bar for file uploads
-                    try:
-                        files = [('files', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
-                        with st.spinner("Processing files..."):
-                            response = requests.post('http://localhost:5050/upload', files=files)
-                        if response.status_code == 200:
-                            st.success("Files uploaded and processed successfully!")
-                        else:
-                            error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
-                            st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"Error connecting to the server: {str(e)}")
-            else:
-                st.warning("Please upload documents to use the Custom vector database.")
+            # Display file details
+            for file in uploaded_files:
+                st.write(f"File: {file.name}, Size: {file.size} bytes")
+
+            if st.button("Process Files"):
+                file_upload_progress(uploaded_files)  # Show progress bar for file uploads
+                try:
+                    files = [('file', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
+                    with st.spinner("Processing files..."):
+                        response = requests.post('http://localhost:5050/upload', files=files)
+
+                    if response.status_code == 200:
+                        st.success("Files uploaded and processed successfully!")
+                    else:
+                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
+                        st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Error connecting to the server: {str(e)}")
+
+        # Dropdown for vector database selection
+        vector_db_choice = st.selectbox(
+            "Select the vector database for the query:",
+            ("Wiki", "ArXiv", "Custom"),
+            key="vector_db_selector"
+        )
+        st.session_state.vector_db_choice = vector_db_choice  # Store vector database choice in session state
 
         # Query input for document Q&A
         query = st.text_input("Enter your query for sequence reconstruction:")
@@ -102,15 +106,12 @@ def main():
             if query:
                 st.session_state.query = query  # Store query in session state
                 try:
-                    # Send the question and selected vector database to the Flask backend
+                    # Send the question and vector database choice to the Flask backend
                     with st.spinner("Generating answer..."):
-                        response = requests.post(
-                            'http://localhost:5050/ask',
-                            json={
-                                'question': query,
-                                'vector_db': st.session_state.selected_vector_db
-                            }
-                        )
+                        response = requests.post('http://localhost:5050/ask', json={
+                            'question': query,
+                            'vector_db_choice': st.session_state.vector_db_choice  # Pass vector database choice
+                        })
 
                     if response.status_code == 200:
                         st.session_state.answer = response.json()['answer']  # Store answer in session state
@@ -149,11 +150,6 @@ def main():
     with tabs[1]:
         st.header("Visualization")
         st.write("Visualization content goes here.")
-
-    # Gap Identification Tab (can be extended with actual logic)
-    with tabs[2]:
-        st.header("Gap Identification")
-        st.write("Gap Identification content goes here.")
 
 if __name__ == "__main__":
     main()

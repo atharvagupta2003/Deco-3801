@@ -14,7 +14,7 @@ from web_scrapers.search_tool_arxiv import *
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
-from src.agent.ingest import get_retriever
+from ingest import get_retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated
@@ -286,7 +286,7 @@ class GraphState(TypedDict):
 # -----------Nodes------------
 def retrieve(state):
     """
-    Retrieve documents from the selected vectorstore
+    Retrieve documents from vectorstore
 
     Args:
         state (dict): The current graph state
@@ -296,10 +296,8 @@ def retrieve(state):
     """
     print("---RETRIEVE---")
     question = state["question"]
-
     vector_db_choice = state.get('vector_db_choice', 'Wiki')  # Default to 'Wiki' if not specified
     retriever = get_retriever(vector_db_choice)
-
     documents = retriever.invoke(question)
     return {"documents": documents}
 
@@ -486,6 +484,13 @@ def decide_to_generate(state):
 workflow = None
 graph = None
 
+def create_all_vectorstores():
+    print("Creating Wiki vectorstore...")
+    get_retriever("Wiki")
+    print("Creating ArXiv vectorstore...")
+    get_retriever("ArXiv")
+
+    print("All vectorstores created.")
 # Function to setup the workflow
 def setup_workflow():
     global workflow
@@ -528,11 +533,14 @@ def setup_workflow():
 
 # Run this block only when graph.py is executed directly (not imported)
 if __name__ == "__main__":
+    create_all_vectorstores()
     workflow, graph = setup_workflow()  # Setup only when running directly
     user_question = input("Please enter your question (or press Enter to use the default): ")
     question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
+    vector_db_choice = input("Please enter the vector database (Wiki/ArXiv/Custom): ")
+    vector_db_choice = vector_db_choice if vector_db_choice else "Wiki"
 
-    inputs = {"question": question_to_ask}
+    inputs = {"question": question_to_ask, "vector_db_choice": vector_db_choice}
 
     # Updated configuration with additional keys
     config = {
@@ -548,5 +556,6 @@ if __name__ == "__main__":
         print(event)
 
 else:
+    create_all_vectorstores()
     # When imported, the workflow will only be setup when explicitly called, not during import.
     setup_workflow()  # Make sure the graph is set up if needed# Make sure the graph is set up if needed
