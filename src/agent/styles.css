@@ -1,4 +1,3 @@
-/* Existing styles */
 .stApp {
     background-color: #000000;
     color: #ffffff;
@@ -61,14 +60,13 @@ h1 {
     margin-right: 30px;
 }
 
-/* Specific styling for the query input label */
 .stTextInput > label {
-    font-size: 3em;   /* Increase font size */
-    color: #000000;   /* Change color */
-    font-weight: bold; /* Make it bold */
+    font-size: 3em;
+    color: #000000;
+    font-weight: bold;
     margin-bottom: 10px;
 }
 
 .stTextInput > div {
-    margin-top: -50px; /* Reduces space between label and input */
+    margin-top: -50px;
 }

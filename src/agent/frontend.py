@@ -21,7 +21,7 @@ def file_upload_progress(files):
     total_files = len(files)
 
     for i, file in enumerate(files):
-        time.sleep(1)  # Simulate upload time
+        time.sleep(1)
         st.write(f"Processing {file.name} ...")
         progress_bar.progress((i + 1) / total_files)
 
@@ -34,7 +34,7 @@ if "uploaded_files" not in st.session_state:
 if "query" not in st.session_state:
     st.session_state.query = ""
 if "show_suggestions" not in st.session_state:
-    st.session_state.show_suggestions = False  # Tracks the visibility of suggestions
+    st.session_state.show_suggestions = False
 
 # Sample sentence suggestions
 suggestions = [
@@ -76,14 +76,12 @@ def main():
     tabs = st.tabs(["Home", "Visualization", "Gap Identification"])
 
     with tabs[0]:
-        # Using columns for layout adjustment
         col1, col2 = st.columns([3, 4])
 
         with col1:
             st.markdown('<h3 class="nvidia-green">Upload Documents and <br> Enter Query</h3>', unsafe_allow_html=True)
 
         with col2:
-            # File upload component (narrower width)
             uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
 
             if uploaded_files:
@@ -108,13 +106,12 @@ def main():
                     except requests.exceptions.RequestException as e:
                         st.error(f"Error connecting to the server: {str(e)}")
 
-        # Manually create a styled label for the query input
         st.markdown("<h4 style='color: #ffffff; font-size: 1.5em; margin-bottom: 5px;'>Enter your Query for Sequence Reconstruction:</h4>", unsafe_allow_html=True)
 
-        # Drop-down arrow and text input
+        # text input
         query = st.text_input("Query Bar", key="query_input", value=st.session_state.query)
 
-        # Add a button (drop-down arrow) next to the text input
+        # drop-down arrow button
         if st.button("Example Queries ⬇️", key="show_suggestions_button"):
             st.session_state.show_suggestions = not st.session_state.show_suggestions
 
@@ -123,8 +120,8 @@ def main():
             st.markdown("<div class='suggestion-box'>", unsafe_allow_html=True)
             for suggestion in suggestions:
                 if st.button(suggestion, key=suggestion):
-                    st.session_state.query = suggestion  # Automatically fills the query input
-                    st.session_state.show_suggestions = False  # Hide the suggestions after a selection
+                    st.session_state.query = suggestion 
+                    st.session_state.show_suggestions = False
                     st.experimental_rerun()  # Re-run to update the UI
             st.markdown("</div>", unsafe_allow_html=True)
 
