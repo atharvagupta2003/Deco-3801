@@ -1,14 +1,13 @@
 import requests
 import fitz  # PyMuPDF for PDF processing
 import os
-
 from dotenv import load_dotenv
-from langchain.docstore.document import Document
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain.docstore.document import Document
 
 load_dotenv()
 
@@ -42,48 +41,33 @@ def extract_text_from_pdf(pdf_path):
     return text
 
 
-# Initialize NVIDIA embeddings
+#Initialize NVIDIA embeddings for ArXiv
 embeddings = NVIDIAEmbeddings(
     model="nvidia/nv-embedqa-e5-v5",
     api_key=os.environ.get("nvidia_api_key"),
     truncate="NONE",
 )
-
-# Global variables to store vectorstores
-wiki_vectorstore = None
-arxiv_vectorstore = None
 custom_vectorstore = None
 
-def create_custom_vectorstore(uploaded_docs):
-    """
-    Create or update the custom vectorstore from uploaded documents.
-    Args:
-        uploaded_docs (list): List of dictionaries with 'content' and 'filename'
-    """
+def create_custom_vectorstore(docs_list):
     global custom_vectorstore
-
-    # Convert uploaded_docs to Document objects
-    documents = []
-    for doc in uploaded_docs:
-        content = doc['content'].decode('utf-8', errors='ignore')
-        documents.append(Document(page_content=content, metadata={'filename': doc['filename']}))
+    # Convert the docs_list to Document objects
+    documents = [Document(page_content=doc["text"], metadata={"source": doc["title"]}) for doc in docs_list]
 
     # Split documents
-    text_splitter = RecursiveCharacterTextSplitter(
+    text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         chunk_size=400, chunk_overlap=50
     )
     doc_splits = text_splitter.split_documents(documents)
     print(f"Number of document chunks: {len(doc_splits)}")
 
-    # Create the vectorstore in-memory without persistence
-    custom_vectorstore = Chroma.from_documents(
+    vectorstore = Chroma.from_documents(
         documents=doc_splits,
         embedding=embeddings,
         collection_name="custom-chroma",
-        persist_directory=None  # No persistence
     )
-    print("Custom vectorstore created/updated in memory.")
-
+    custom_vectorstore = vectorstore
+    return vectorstore
 
 
 def create_arxiv_vectorstore():
@@ -156,33 +140,20 @@ def create_wiki_vectorstore():
     )
     return vectorstore
 
-def get_wiki_vectorstore():
-    global wiki_vectorstore
-    if wiki_vectorstore is None:
-        wiki_vectorstore = create_wiki_vectorstore()
-    return wiki_vectorstore
-
-def get_arxiv_vectorstore():
-    global arxiv_vectorstore
-    if arxiv_vectorstore is None:
-        arxiv_vectorstore = create_arxiv_vectorstore()
-    return arxiv_vectorstore
-
-def get_custom_vectorstore():
-    global custom_vectorstore
-    if custom_vectorstore is None:
-        raise ValueError("Custom vectorstore does not exist. Please upload documents to create it.")
-    return custom_vectorstore
-
 def get_retriever(vector_db_choice):
     if vector_db_choice == 'Wiki':
-        return get_wiki_vectorstore().as_retriever(k=5)
+        return create_wiki_vectorstore().as_retriever()
     elif vector_db_choice == 'ArXiv':
-        return get_arxiv_vectorstore().as_retriever(k=5)
+        return create_arxiv_vectorstore().as_retriever()
     elif vector_db_choice == 'Custom':
-        return get_custom_vectorstore().as_retriever(k=5)
+        if custom_vectorstore is not None:
+            return custom_vectorstore.as_retriever()
+        else:
+            raise ValueError("Custom vectorstore is not initialized.")
     else:
-        # Default to Wiki retriever
-        return get_wiki_vectorstore().as_retriever(k=5)
-
+        raise ValueError("Invalid vector database choice")
 print("Embeddings successfully stored in Chroma vector database.")
+
+# retriever_arxiv = create_arxiv_vectorstore().as_retriever(k=5)
+
+# retriever_custom = create_custom_vectorstore(docs_list).as_retriever(k=5)

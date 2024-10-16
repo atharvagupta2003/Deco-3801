@@ -3,7 +3,6 @@ import streamlit as st
 import os
 import time
 
-
 # Function to check server health
 def check_server_health():
     try:
@@ -11,7 +10,6 @@ def check_server_health():
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
-
 
 def load_css(file_name):
     with open(file_name) as f:
@@ -23,10 +21,9 @@ def file_upload_progress(files):
     total_files = len(files)
 
     for i, file in enumerate(files):
-        time.sleep(1)  # Simulate upload time
+        time.sleep(0.5)  # Simulate upload time
         st.write(f"Processing {file.name} ...")
         progress_bar.progress((i + 1) / total_files)
-
 
 # Initialize session state variables
 if "answer" not in st.session_state:
@@ -35,7 +32,8 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
 if "query" not in st.session_state:
     st.session_state.query = ""
-
+if "vector_db_choice" not in st.session_state:
+    st.session_state.vector_db_choice = "Wiki"  # Default choice
 
 def main():
     # Set Streamlit page configuration
@@ -50,7 +48,6 @@ def main():
     css_file = os.path.join(os.path.dirname(__file__), "styles.css")
     load_css(css_file)
 
-
     # NVIDIA logo
     st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">',
                 unsafe_allow_html=True)
@@ -64,12 +61,12 @@ def main():
         st.stop()
 
     # Navigation tabs without icons
-    tabs = st.tabs(["Home", "Visualization", "Gap Identification"])
+    tabs = st.tabs(["Home", "Visualization"])
 
     with tabs[0]:
         st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
 
-
+        # File uploader
         uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
 
         if uploaded_files:
@@ -82,7 +79,7 @@ def main():
             if st.button("Process Files"):
                 file_upload_progress(uploaded_files)  # Show progress bar for file uploads
                 try:
-                    files = [('files[]', file) for file in uploaded_files]
+                    files = [('file', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
                     with st.spinner("Processing files..."):
                         response = requests.post('http://localhost:5050/upload', files=files)
 
@@ -94,6 +91,14 @@ def main():
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error connecting to the server: {str(e)}")
 
+        # Dropdown for vector database selection
+        vector_db_choice = st.selectbox(
+            "Select the vector database for the query:",
+            ("Wiki", "ArXiv", "Custom"),
+            key="vector_db_selector"
+        )
+        st.session_state.vector_db_choice = vector_db_choice  # Store vector database choice in session state
+
         # Query input for document Q&A
         query = st.text_input("Enter your query for sequence reconstruction:")
 
@@ -101,9 +106,12 @@ def main():
             if query:
                 st.session_state.query = query  # Store query in session state
                 try:
-                    # Send the question to the Flask backend
+                    # Send the question and vector database choice to the Flask backend
                     with st.spinner("Generating answer..."):
-                        response = requests.post('http://localhost:5050/ask', json={'question': query})
+                        response = requests.post('http://localhost:5050/ask', json={
+                            'question': query,
+                            'vector_db_choice': st.session_state.vector_db_choice  # Pass vector database choice
+                        })
 
                     if response.status_code == 200:
                         st.session_state.answer = response.json()['answer']  # Store answer in session state
@@ -142,12 +150,6 @@ def main():
     with tabs[1]:
         st.header("Visualization")
         st.write("Visualization content goes here.")
-
-    # Gap Identification Tab (can be extended with actual logic)
-    with tabs[2]:
-        st.header("Gap Identification")
-        st.write("Gap Identification content goes here.")
-
 
 if __name__ == "__main__":
     main()
