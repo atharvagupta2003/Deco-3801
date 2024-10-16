@@ -84,3 +84,7 @@ websockets
 wrapt
 yarl
 zipp
+arxiv
+wikipedia
+pymupdf
+requests
