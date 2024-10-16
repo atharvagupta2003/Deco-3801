@@ -4,7 +4,7 @@
 }
 
 .stButton > button {
-    background-color: #ffffff;
+    background-color: #76B900;
     color: #000000;
     border: none;
     padding: 0.7rem 1.7rem;
@@ -31,7 +31,7 @@ h1 {
     background-color: #2A2A2A;
     border-radius: 5px;
     padding: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .browse-files {
