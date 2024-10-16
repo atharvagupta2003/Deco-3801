@@ -14,7 +14,7 @@ from web_scrapers.search_tool_arxiv import *
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
-from ingest import get_retriever
+from src.agent.ingest import get_retriever
 import operator
 from typing_extensions import TypedDict
 from typing import List, Annotated

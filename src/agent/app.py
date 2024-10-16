@@ -3,9 +3,9 @@ import os
 import logging
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import ingest  # Assuming you have a method in ingest to create custom vectorstore
-from graph import setup_workflow
-from graph import workflow, graph, get_retriever
+import src.agent.ingest
+from src.agent.graph import setup_workflow
+from src.agent.graph import workflow, graph, get_retriever
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -78,7 +78,7 @@ def upload_file():
 
     # Create custom vector database with the uploaded documents
     try:
-        ingest.create_custom_vectorstore(uploaded_docs)
+        src.agent.ingest.create_custom_vectorstore(uploaded_docs)
         logging.info("Custom vector database created successfully.")
     except Exception as e:
         logging.error(f"Error creating vector database: {str(e)}")
