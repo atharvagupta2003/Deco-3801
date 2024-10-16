@@ -14,7 +14,7 @@ cachetools
 certifi
 charset-normalizer
 chroma-hnswlib
-chromadb
+chromadb==0.4.9
 click
 coloredlogs
 dataclasses-json
