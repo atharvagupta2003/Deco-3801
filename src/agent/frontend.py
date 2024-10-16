@@ -1,7 +1,9 @@
+# frontend.py
+
 import requests
 import streamlit as st
 import os
-import time
+import uuid
 
 # Function to check server health
 def check_server_health():
@@ -15,16 +17,6 @@ def load_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Progress Bar for File Uploads
-def file_upload_progress(files):
-    progress_bar = st.progress(0)
-    total_files = len(files)
-
-    for i, file in enumerate(files):
-        time.sleep(0.5)  # Simulate upload time
-        st.write(f"Processing {file.name} ...")
-        progress_bar.progress((i + 1) / total_files)
-
 # Initialize session state variables
 if "answer" not in st.session_state:
     st.session_state.answer = ""
@@ -33,7 +25,17 @@ if "uploaded_files" not in st.session_state:
 if "query" not in st.session_state:
     st.session_state.query = ""
 if "vector_db_choice" not in st.session_state:
-    st.session_state.vector_db_choice = "Wiki"  # Default choice
+    st.session_state.vector_db_choice = "Wiki"
+if "need_user_input" not in st.session_state:
+    st.session_state.need_user_input = False
+if "options" not in st.session_state:
+    st.session_state.options = []
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+if "user_choice_made" not in st.session_state:
+    st.session_state.user_choice_made = False
+if "user_choice" not in st.session_state:
+    st.session_state.user_choice = None
 
 def main():
     # Set Streamlit page configuration
@@ -46,7 +48,10 @@ def main():
 
     # Load the external CSS file
     css_file = os.path.join(os.path.dirname(__file__), "styles.css")
-    load_css(css_file)
+    if os.path.exists(css_file):
+        load_css(css_file)
+    else:
+        st.write("CSS file not found.")
 
     # NVIDIA logo
     st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">',
@@ -77,7 +82,6 @@ def main():
                 st.write(f"File: {file.name}, Size: {file.size} bytes")
 
             if st.button("Process Files"):
-                file_upload_progress(uploaded_files)  # Show progress bar for file uploads
                 try:
                     files = [('file', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
                     with st.spinner("Processing files..."):
@@ -102,27 +106,89 @@ def main():
         # Query input for document Q&A
         query = st.text_input("Enter your query for sequence reconstruction:")
 
-        if st.button("Reconstruct Sequence"):
+        # Reconstruct Sequence button
+        if st.button("Reconstruct Sequence", disabled=st.session_state.need_user_input):
             if query:
-                st.session_state.query = query  # Store query in session state
+                st.session_state.query = query
+                st.session_state.session_id = str(uuid.uuid4())
+                st.session_state.answer = ""  # Reset previous answer
+                st.session_state.need_user_input = False
+                st.session_state.user_choice_made = False
+                st.session_state.user_choice = None
+
+                # Send initial request to backend
                 try:
-                    # Send the question and vector database choice to the Flask backend
-                    with st.spinner("Generating answer..."):
+                    with st.spinner("Processing..."):
                         response = requests.post('http://localhost:5050/ask', json={
                             'question': query,
-                            'vector_db_choice': st.session_state.vector_db_choice  # Pass vector database choice
+                            'vector_db_choice': st.session_state.vector_db_choice,
+                            'session_id': st.session_state.session_id
                         })
 
+                    response_data = response.json()
                     if response.status_code == 200:
-                        st.session_state.answer = response.json()['answer']  # Store answer in session state
-                        st.success("Answer generated!")
+                        if response_data.get('need_user_input'):
+                            st.session_state.options = response_data['options']
+                            st.session_state.need_user_input = True
+                            st.session_state.session_id = response_data['session_id']
+                        elif 'answer' in response_data:
+                            st.session_state.answer = response_data['answer']
+                            st.success("Answer generated!")
+                        elif 'error' in response_data:
+                            st.error(f"Error: {response_data['error']}")
+                        else:
+                            st.error("Unexpected response from server.")
                     else:
-                        error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
-                        st.error(f"Error getting answer. Status code: {response.status_code}. Message: {error_message}")
-                except requests.exceptions.RequestException as e:
+                        error_message = response_data.get('error', 'Unknown error')
+                        st.error(f"Error: {error_message}")
+                except Exception as e:
                     st.error(f"Error connecting to the server: {str(e)}")
             else:
-                st.warning("Please enter a question before getting an answer.")
+                st.warning("Please enter a question before proceeding.")
+
+        # If user input is needed
+        if st.session_state.need_user_input:
+            with st.form("user_input_form"):
+                st.write("Please select a search tool:")
+                selected_option = st.radio("Search Tools", st.session_state.options, key="user_choice_radio")
+                submit_choice = st.form_submit_button("Submit Choice")
+                if submit_choice:
+                    if selected_option:
+                        st.session_state.user_choice = selected_option
+                        st.session_state.user_choice_made = True
+                        st.write(f"Submitting choice with Session ID: {st.session_state.session_id}")  # Debugging
+                        try:
+                            with st.spinner("Processing your choice..."):
+                                response = requests.post('http://localhost:5050/ask', json={
+                                    'question': st.session_state.query,
+                                    'vector_db_choice': st.session_state.vector_db_choice,
+                                    'user_choice': st.session_state.user_choice,
+                                    'session_id': st.session_state.session_id
+                                })
+
+                            response_data = response.json()
+                            if response.status_code == 200:
+                                if 'answer' in response_data:
+                                    st.session_state.answer = response_data['answer']
+                                    st.session_state.need_user_input = False
+                                    st.success("Answer generated!")
+                                elif response_data.get('need_user_input'):
+                                    # If more input is needed, update options
+                                    st.session_state.options = response_data['options']
+                                    st.session_state.need_user_input = True
+                                    st.session_state.user_choice_made = False
+                                    st.warning("Please select an option.")
+                                elif 'error' in response_data:
+                                    st.error(f"Error: {response_data['error']}")
+                                else:
+                                    st.error("Unexpected response from server.")
+                            else:
+                                error_message = response_data.get('error', 'Unknown error')
+                                st.error(f"Error: {error_message}")
+                        except Exception as e:
+                            st.error(f"Error connecting to the server: {str(e)}")
+                    else:
+                        st.warning("Please select an option before submitting.")
 
         # Display the answer if available
         if st.session_state.answer:
