@@ -7,9 +7,9 @@
     background-color: #76B900;
     color: #ffffff;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: 0.7rem 1.7rem;
     font-weight: bold;
-    border-radius: 5px;
+    border-radius: 15px;
 }
 
 .stButton > button:hover {
@@ -18,12 +18,13 @@
 
 h1 {
     color: #ffffff;
-    font-size: 2.5em;
+    font-size: 3.5em;
+    margin-bottom: 20px;
 }
 
 .nvidia-logo {
     width: 100px;
-    margin-bottom: 20px;
+    margin-bottom: 0px;
 }
 
 .file-uploader {
@@ -47,6 +48,8 @@ h1 {
 
 .nvidia-green {
     color: #76B900;
+    font-size: 2em;
+    margin-bottom: 40px
 }
 
 .stTabs {
@@ -55,4 +58,21 @@ h1 {
 
 .stTabs div[role="tablist"] > div {
     margin-right: 30px;
+}
+
+.prompt-request {
+    color: #ffffff;
+    font-size: 1em;
+}
+
+/* Specific styling for the query input label */
+.stTextInput > label {
+    font-size: 3em;   /* Increase font size */
+    color: #ffffff;   /* Change color */
+    font-weight: bold; /* Make it bold */
+    margin-bottom: 10px;
+}
+
+.stTextInput > div {
+    margin-top: -34px; /* Reduces space between label and input */
 }

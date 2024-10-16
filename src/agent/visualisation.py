@@ -9,16 +9,28 @@ def list_steps(sequence):
     steps = [line.strip() for line in lines if "Step" in line]
   
     return (steps)
-    
+
+def check(step_lines):
+    value = 0
+    for step_line in step_lines:
+        step_parts = step_line.split(": ", 1)
+        if "-" in step_parts[1]:
+            value = 1
+    return value
+
+
+
+
+
 
 def extract_steps_with_years_events(step_lines):
     years = []
     events = []
-    
+    check(step_lines)
     for step_line in step_lines:
         # Split the step line by the colon to separate the step number and the rest
         step_parts = step_line.split(": ", 1)
-        
+        print(step_parts)
         if len(step_parts) < 2:
             continue  # Skip if the format is unexpected
         
@@ -30,6 +42,8 @@ def extract_steps_with_years_events(step_lines):
         
         year = year_event[0].strip()  # Extract the year part
         event = year_event[1].strip()  # Extract the event part
+        print(year)
+        print(event)
         
         years.append((year))
         events.append(event)
@@ -88,3 +102,158 @@ def plot_large_timeline(sequence):
 
     # Show the plot in Streamlit using st.pyplot
     st.pyplot(fig)
+
+
+def extract(step_lines):
+    events = []
+    for step_line in step_lines:
+        step_parts = step_line.split(": ", 1)
+        if len(step_parts) < 2:
+            continue  # Skip if the format is unexpected
+        
+        # not a timeline event so the second part becomes the node
+        events.append(step_parts[1])
+    return events
+
+
+def visualize_linked_list_with_heading(elements):
+    # Generate steps for each element
+    elements_with_steps = [f"Step {i + 1}: {element}" for i, element in enumerate(elements)]
+
+    # HTML, CSS, and JavaScript code for the linked list visualization
+    html_code = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Linked List Visualization</title>
+        <style>
+            body {{
+                margin: 0;
+                padding: 0;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }}
+
+            .heading {{
+                font-size: 36px;
+                color: #ffffff;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+                margin-bottom: 30px;
+                font-weight: bold;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: rgba(0, 0, 0, 0.2);
+                padding: 10px 20px;
+                border-radius: 10px;
+            }}
+
+            .linked-list {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-wrap: wrap;
+                max-width: 90%;
+            }}
+
+            .node {{
+                background-color: #ff6f61;
+                color: white;
+                padding: 15px 20px;
+                margin: 15px;
+                border-radius: 30px;
+                position: relative;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-size: 18px;
+                text-align: center;
+                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+                transition: transform 0.3s ease;
+            }}
+
+            .node:hover {{
+                transform: scale(1.1);
+            }}
+
+            .arrow {{
+                width: 60px;
+                height: 4px;
+                background-color: #ffffff;
+                margin: 10px;
+                position: relative;
+                border-radius: 2px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            }}
+
+            .arrow:before {{
+                content: "";
+                position: absolute;
+                top: -7px;
+                right: -12px;
+                border-top: 12px solid transparent;
+                border-left: 12px solid white;
+                border-bottom: 12px solid transparent;
+            }}
+
+            /* Responsive behavior */
+            @media (max-width: 600px) {{
+                .node {{
+                    font-size: 14px;
+                    padding: 10px 12px;
+                }}
+
+                .arrow {{
+                    width: 40px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="heading">Visualization for Chemical Synthesis</div>
+        <div class="linked-list" id="linked-list"></div>
+
+        <script>
+            // Function to generate the linked list dynamically with steps
+            function generateLinkedList(elements) {{
+                const linkedListContainer = document.getElementById('linked-list');
+                linkedListContainer.innerHTML = '';  // Clear previous content
+
+                elements.forEach((element, index) => {{
+                    // Create a new node
+                    const node = document.createElement('div');
+                    node.classList.add('node');
+                    node.innerText = element;
+
+                    // Add the node to the linked list container
+                    linkedListContainer.appendChild(node);
+
+                    // If it's not the last element, add an arrow between nodes
+                    if (index < elements.length - 1) {{
+                        const arrow = document.createElement('div');
+                        arrow.classList.add('arrow');
+                        linkedListContainer.appendChild(arrow);
+                    }}
+                }});
+            }}
+
+            // Passing the Python list into the JavaScript function
+            const elements = {elements_with_steps};
+            generateLinkedList(elements);
+        </script>
+    </body>
+    </html>
+    """
+
+    # Inject the HTML, CSS, and JavaScript into Streamlit
+    st.components.v1.html(html_code, height=600)
+
+
+def call_visualisation(sequence):
+    if (check(list_steps(sequence))):
+        plot_large_timeline(sequence)
+    else:
+        visualize_linked_list_with_heading(extract(list_steps(sequence)))
