@@ -1,11 +1,12 @@
+/* Existing styles */
 .stApp {
     background-color: #000000;
     color: #ffffff;
 }
 
 .stButton > button {
-    background-color: #76B900;
-    color: #ffffff;
+    background-color: #ffffff;
+    color: #000000;
     border: none;
     padding: 0.7rem 1.7rem;
     font-weight: bold;
@@ -60,19 +61,14 @@ h1 {
     margin-right: 30px;
 }
 
-.prompt-request {
-    color: #ffffff;
-    font-size: 1em;
-}
-
 /* Specific styling for the query input label */
 .stTextInput > label {
     font-size: 3em;   /* Increase font size */
-    color: #ffffff;   /* Change color */
+    color: #000000;   /* Change color */
     font-weight: bold; /* Make it bold */
     margin-bottom: 10px;
 }
 
 .stTextInput > div {
-    margin-top: -34px; /* Reduces space between label and input */
+    margin-top: -50px; /* Reduces space between label and input */
 }

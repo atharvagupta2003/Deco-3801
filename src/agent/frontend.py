@@ -3,7 +3,6 @@ import streamlit as st
 import os
 import time
 
-
 # Function to check server health
 def check_server_health():
     try:
@@ -12,11 +11,9 @@ def check_server_health():
     except requests.exceptions.RequestException:
         return False
 
-
 def load_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
 
 # Progress Bar for File Uploads
 def file_upload_progress(files):
@@ -36,7 +33,16 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
 if "query" not in st.session_state:
     st.session_state.query = ""
+if "show_suggestions" not in st.session_state:
+    st.session_state.show_suggestions = False  # Tracks the visibility of suggestions
 
+# Sample sentence suggestions
+suggestions = [
+    "Give timline of events in World war 1",
+    "Give timline of events in World war 2",
+    "Give all the steps for synthesis of Carbon Monoxide",
+    "Give all the steps for decomposition of Ozone"
+]
 
 def main():
     # Set Streamlit page configuration
@@ -105,8 +111,22 @@ def main():
         # Manually create a styled label for the query input
         st.markdown("<h4 style='color: #ffffff; font-size: 1.5em; margin-bottom: 5px;'>Enter your Query for Sequence Reconstruction:</h4>", unsafe_allow_html=True)
 
-        # Query input for document Q&A
-        query = st.text_input(" ", key="query_input")
+        # Drop-down arrow and text input
+        query = st.text_input("Query Bar", key="query_input", value=st.session_state.query)
+
+        # Add a button (drop-down arrow) next to the text input
+        if st.button("Example Queries ⬇️", key="show_suggestions_button"):
+            st.session_state.show_suggestions = not st.session_state.show_suggestions
+
+        # Display suggestions when the arrow is clicked
+        if st.session_state.show_suggestions:
+            st.markdown("<div class='suggestion-box'>", unsafe_allow_html=True)
+            for suggestion in suggestions:
+                if st.button(suggestion, key=suggestion):
+                    st.session_state.query = suggestion  # Automatically fills the query input
+                    st.session_state.show_suggestions = False  # Hide the suggestions after a selection
+                    st.experimental_rerun()  # Re-run to update the UI
+            st.markdown("</div>", unsafe_allow_html=True)
 
         if st.button("Reconstruct Sequence"):
             if query:
