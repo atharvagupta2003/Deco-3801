@@ -3,8 +3,14 @@ from dotenv import load_dotenv
 import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, ChatNVIDIA  
+from langchain_chroma import Chroma
+from langchain_community.tools import WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
+from web_scrapers.search_tool_arxiv import ArxivSearchTool
 from langchain_community.tools.tavily_search import TavilySearchResults
+from web_scrapers.search_tool_arxiv import *
+
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import Document
 from langgraph.graph import END, START
@@ -41,7 +47,6 @@ Step 3:
 
 Question: {question}
 Answer:"""
-
 
 prompt = PromptTemplate(
     template="""You are a grader assessing whether an answer is useful to resolve a question. \n
@@ -89,7 +94,26 @@ prompt = PromptTemplate(
 
 answer_grader = prompt | llm_json_mode | JsonOutputParser()
 
+prompt_template = """
+You are an intelligent assistant tasked with selecting the best web search tools to retrieve information based on the user's query. 
+Here are the available tools:
+{tools_list}
+
+Here is the user query: {question}
+
+Based on the query, select one or more of the tools that would provide the most relevant information. 
+Once the search is complete, use the information retrieved to generate a clear and concise answer to the query.
+Respond with the names of the tools you would like to use as a JSON list with no explanation. 
+For example, ['Tavily', 'Arxiv', 'Wikipedia'] or ['Wikipedia'] or ['Tavily', 'Arxiv'].
+"""
+
+# Create the prompt template
 prompt = PromptTemplate(
+    template=prompt_template,
+    input_variables=["question", "tools_list"]
+)
+
+grader_prompt = PromptTemplate(
     template="""You are a teacher grading a quiz. You will be given: 
 1/ a QUESTION
 2/ A FACT provided by the student
@@ -146,7 +170,7 @@ Provide the binary score as a JSON with a single key 'score' and nothing else.
 )
 
 
-retrieval_grader = prompt | llm_json_mode | JsonOutputParser()
+retrieval_grader = grader_prompt | llm_json_mode | JsonOutputParser()
 
 web_search_tool = TavilySearchResults(
     max_results=10,
@@ -157,6 +181,96 @@ web_search_tool = TavilySearchResults(
     api_key=os.environ.get("TAVILY_API_KEY"),
 )
 
+wikipedia = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=5, max_characters=10000))
+
+arxiv_tool = ArxivSearchTool(max_results=5, save_folder="downloads")
+
+# List of available web scrapers
+web_scrapers = [
+    {"name": "Tavily", "description": "For general web content, images, and raw content."},
+    {"name": "Arxiv", "description": "For academic papers and research articles."},
+    {"name": "Wikipedia", "description": "For general knowledge and concise information from Wikipedia."}
+]
+
+# Format the tools list as a string for the prompt
+tools_list = "\n".join([f"{i+1}. {scraper['name']}: {scraper['description']}" for i, scraper in enumerate(web_scrapers)])
+
+## Callable for Tavily
+def search_tavily(query):
+    """
+    Perform a search using Tavily API and return the response.
+    """
+    try:
+        # Ensure the query is well-formed for Tavily
+        response = web_search_tool.invoke({"query": query})
+
+        # Debug the raw response
+        print(f"Raw Tavily API response: {response}")
+
+        # Check if the response is a list and contains results
+        if response and isinstance(response, list) and len(response) > 0:
+            # The response is a list of results with 'url', 'content', etc.
+            combined_results = "\n".join([result.get('content', 'No content available') for result in response])
+            if combined_results:
+                return combined_results  # Return the combined content
+            else:
+                print("No relevant content found in Tavily results.")
+                return None
+        else:
+            print("Tavily API returned an empty list or an unexpected format.")
+            return None
+
+    except Exception as e:
+        print(f"Error during Tavily API call: {e}")
+        return None
+
+    
+# Callable for Arxiv
+def search_arxiv(query):
+    """
+    Perform a search using Arxiv API and return the response.
+    """
+    print(f"Searching ArXiv for: {query}")
+    try:
+        response = arxiv_tool.search(query)
+        print(f"Arxiv response: {response}")
+        return response
+    except Exception as e:
+        print(f"Error during Arxiv API call: {e}")
+        return None
+
+# Callable for Wikipedia
+def search_wikipedia(query):
+    """
+    Perform a search using Wikipedia API and return the response.
+    """
+    print(f"Searching Wikipedia for: {query}")
+    try:
+        response = wikipedia.invoke({"query": query})
+        print(f"Wikipedia response: {response}")
+        return response
+    except Exception as e:
+        print(f"Error during Wikipedia API call: {e}")
+        return None
+
+web_tools = [
+    {
+        "name": "Tavily",
+        "description": "For general web content, images, and raw content.",
+        "function": search_tavily
+    },
+    {
+        "name": "Arxiv",
+        "description": "For academic papers and research articles.",
+        "function": search_arxiv
+    },
+    {
+        "name": "Wikipedia",
+        "description": "For general knowledge and concise information from Wikipedia.",
+        "function": search_wikipedia
+    }
+]
+llm_with_tools = prompt | llm.bind_tools([tool["function"] for tool in web_tools])
 
 class GraphState(TypedDict):
     """
@@ -205,34 +319,95 @@ def generate(state):
     documents = state["documents"]
     print(documents)
     # RAG generation
-
-    docs_txt = " ".join([doc.page_content for doc in documents])
-    seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
+    if not documents:
+        message = state.get("message", "No external sources were useful. Generating the answer based on the LLM's information.")
+        seq_generator_prompt = f"{message}\n\n{seq_generator_instructions}".format(context="", question=question)
+    else:
+        docs_txt = " ".join([doc.page_content for doc in documents])
+        seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
+    
     generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
     return {"generation": generation}
 
 
+import json
+
+# Helper function to get user-selected search tool
+def get_user_search_tool():
+    # Present the options to the user
+    print("Select a search tool by entering the corresponding number:")
+    print("1. Tavily")
+    print("2. Arxiv")
+    print("3. Wikipedia")
+    print("If the selected tool doesn't return good results, the system will automatically try other tools.")
+
+    # Get user's choice
+    choice = input("Enter your choice (1/2/3): ")
+
+    # Map user choice to the tool name
+    if choice == "1":
+        return "Tavily"
+    elif choice == "2":
+        return "Arxiv"
+    elif choice == "3":
+        return "Wikipedia"
+    else:
+        print("Invalid choice, defaulting to Tavily.")
+        return "Tavily"
+
+# Modified web_search function
 def web_search(state):
     """
-    Web search based on the question
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        state (dict): Appended web results to documents
+    Perform web search based on the user's selected tool. If no results, generate using LLM's own information.
     """
-
     print("---WEB SEARCH---")
     question = state["question"]
     documents = state.get("documents", [])
 
-    # Web search
-    docs = web_search_tool.invoke({"query": question})
-    web_results = "\n".join([d["content"] for d in docs])
-    web_results = Document(page_content=web_results)
-    documents.append(web_results)
-    return {"documents": documents}
+    # Get user's search tool choice
+    selected_tool = get_user_search_tool()
+
+    # Perform search based on selected tool
+    if selected_tool == "Tavily":
+        tavily_response = search_tavily(question)
+        if tavily_response:
+            web_results_doc = Document(page_content=tavily_response)
+            documents.append(web_results_doc)
+            print("Tavily returned results.")
+        else:
+            print("Tavily failed to return results.")
+            return {"documents": [], "message": "Tavily did not yield any useful results."}
+
+    elif selected_tool == "Arxiv":
+        arxiv_response = search_arxiv(question)
+        if arxiv_response:
+            arxiv_results = "\n".join([f"Title: {result['title']}\nSummary: {result['summary']}" for result in arxiv_response])
+            arxiv_doc = Document(page_content=arxiv_results)
+            documents.append(arxiv_doc)
+            print("Arxiv returned results.")
+        else:
+            print("Arxiv failed to return results.")
+            return {"documents": [], "message": "Arxiv did not yield any useful results."}
+
+    elif selected_tool == "Wikipedia":
+        wikipedia_response = search_wikipedia(question)
+        if wikipedia_response:
+            wiki_results = wikipedia_response if isinstance(wikipedia_response, str) else wikipedia_response.get('content', 'No content available')
+            wiki_doc = Document(page_content=wiki_results)
+            documents.append(wiki_doc)
+            print("Wikipedia returned results.")
+        else:
+            print("Wikipedia failed to return results.")
+            return {"documents": [], "message": "Wikipedia did not yield any useful results."}
+
+    # If no documents were found, return an empty list
+    if not documents:
+        print(f"No results found from {selected_tool}, generating answer using LLM's knowledge.")
+        return {"documents": [], "message": f"{selected_tool} did not yield any useful results, providing an answer based on LLM's own information."}
+    
+    return {"documents": documents, "message": None}
+
+
 
 def grade_documents(state):
     """
@@ -307,38 +482,71 @@ def decide_to_generate(state):
         print("---generate---")
         return "generate"
 
+# Create a placeholder for the workflow and graph
+workflow = None
+graph = None
 
-workflow = StateGraph(GraphState)
+# Function to setup the workflow
+def setup_workflow():
+    global workflow
+    global graph
 
-# Define the nodes
-workflow.add_node("websearch", web_search)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
-workflow.add_node("grade_documents", grade_documents)
+    if workflow is None or graph is None:  # Only set up if not already initialized
+        workflow = StateGraph(GraphState)
 
-workflow.add_edge(START, "retrieve")
-workflow.add_edge("retrieve", "grade_documents")
-workflow.add_conditional_edges(
-    "grade_documents",
-    decide_to_generate,
-    {
-        "search": "websearch",
-        "generate": "generate",
-    },
-)
-workflow.add_edge("websearch", "generate")
-workflow.add_conditional_edges(
-    "generate",
-    grade_generation,
-    {"useful": END,
-        "not useful": "retrieve"},
-)
-workflow.add_edge("generate", END)
+        # Adding the new nodes
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("generate", generate)
+        workflow.add_node("grade_documents", grade_documents)
 
-memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory)
-display(Image(graph.get_graph().draw_mermaid_png()))
-# config = {"configurable": {"thread_id": "1"}}
-# inputs = {"question": "major wars involved in world war 1"}
-# for event in graph.stream(inputs, stream_mode="values", config=config):
-#     print(event)
+        # Adding the edges as per the new workflow
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "grade_documents")
+        workflow.add_conditional_edges(
+            "grade_documents",
+            decide_to_generate,
+            {
+                "search": "websearch",
+                "generate": "generate",
+            },
+        )
+        workflow.add_edge("websearch", "generate")
+        workflow.add_conditional_edges(
+            "generate",
+            grade_generation,
+            {"useful": END, "not useful": "retrieve"},
+        )
+        workflow.add_edge("generate", END)
+
+        # Adding memory and compiling the workflow
+        memory = MemorySaver()
+        graph = workflow.compile(checkpointer=memory)
+
+    return workflow, graph
+
+
+# Run this block only when graph.py is executed directly (not imported)
+if __name__ == "__main__":
+    workflow, graph = setup_workflow()  # Setup only when running directly
+    user_question = input("Please enter your question (or press Enter to use the default): ")
+    question_to_ask = user_question if user_question else "steps for synthesis of carbon monoxide?"
+
+    inputs = {"question": question_to_ask}
+
+    # Updated configuration with additional keys
+    config = {
+        "configurable": {
+            "thread_id": "1",
+            "checkpoint_ns": "default_ns",
+            "checkpoint_id": "checkpoint_1"
+        }
+    }
+
+    # Streaming the events as per the new workflow
+    for event in graph.stream(inputs, stream_mode="values", config=config):
+        print(event)
+
+else:
+    # When imported, the workflow will only be setup when explicitly called, not during import.
+    setup_workflow()  # Make sure the graph is set up if needed# Make sure the graph is set up if needed
