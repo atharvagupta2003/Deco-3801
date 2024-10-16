@@ -1,12 +1,9 @@
 from flask import Flask, request, jsonify
 import os
-
 import logging
 from flask_cors import CORS
 from graph import setup_workflow
 from graph import workflow, graph
-from ingest import create_custom_vectorstore  # Import this function
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -19,28 +16,33 @@ ALLOWED_EXTENSIONS = {'txt', 'csv', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'healthy'}), 200
 
-def run_graph_workflow(question: str, vector_db_choice: str):
+
+def run_graph_workflow(question: str):
+    """
+    This function runs the graph workflow with the given question and returns the generated AI answer.
+
+    Args:
+        question (str): The question to ask the graph.
+
+    Returns:
+        str: The AI-generated answer.
+    """
+    # Ensure graph is initialized
     if graph is None:
         logging.error("Graph is not initialized.")
         return "Error: Graph not initialized."
 
-    inputs = {
-        "question": question,
-        "vector_db_choice": vector_db_choice
-    }
+    inputs = {"question": question}
 
     # Configuration required by the checkpointer
     config = {
         "configurable": {
-            "thread_id": "1",  # Use a default thread ID
+            "thread_id": "1",  # Example thread_id, adjust as needed
             "checkpoint_ns": "default_ns",
             "checkpoint_id": "checkpoint_1"
         }
@@ -60,6 +62,7 @@ def run_graph_workflow(question: str, vector_db_choice: str):
             else:
                 logging.warning(f"Unexpected event structure: {output}")
 
+        # Check if output is empty or invalid
         if not output:
             logging.error("No output received from the graph.")
             return "Error: No output received from the AI."
@@ -71,37 +74,6 @@ def run_graph_workflow(question: str, vector_db_choice: str):
     logging.error("No 'generation' found in the graph output.")
     return "Error: No generation found in the AI response."
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    try:
-        if 'files' not in request.files:
-            return jsonify({'error': 'No files provided'}), 400
-
-        files = request.files.getlist('files')
-
-        uploaded_docs = []
-
-        for file in files:
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                file.save(file_path)
-                # Read file content
-                with open(file_path, 'rb') as f:
-                    content = f.read()
-                uploaded_docs.append({'content': content, 'filename': filename})
-            else:
-                return jsonify({'error': f'File type not allowed: {file.filename}'}), 400
-
-        # Create or update the custom vectorstore globally
-        create_custom_vectorstore(uploaded_docs)
-
-        return jsonify({'message': 'Files uploaded and processed successfully!'}), 200
-    except Exception as e:
-        logging.error(f"Error in upload: {str(e)}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
@@ -110,15 +82,13 @@ def ask():
             return jsonify({'error': 'No question provided'}), 400
 
         question = data['question']
-        vector_db_choice = data.get('vector_db', 'Wiki')  # Default to 'Wiki' if not provided
-
         logging.info(f"Received question: {question}")
-        logging.info(f"Selected vector database: {vector_db_choice}")
 
         # Use the helper function to run the graph workflow and get the AI-generated answer
-        answer = run_graph_workflow(question, vector_db_choice)
+        answer = run_graph_workflow(question)
 
         if answer:
+            # Return the AI-generated answer
             logging.info(f"Answer generated for question: {question}")
             return jsonify({'answer': answer}), 200
         else:
@@ -126,6 +96,7 @@ def ask():
     except Exception as e:
         logging.error(f"Error in ask: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
