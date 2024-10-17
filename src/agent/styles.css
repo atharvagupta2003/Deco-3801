@@ -9,13 +9,14 @@
     background-color: #76B900;
     color: #ffffff;
     border: none;
-    padding: 0.7rem 1.7rem;
-    font-weight: bold; /* Make button text bold */
+    padding: 0.5rem 1rem;
+    font-weight: bolder; /* Make button text bold */
     border-radius: 15px;
 }
 
 .stButton > button:hover {
     background-color: #5c9100;
+    color: #f0f0f0;
 }
 
 h1 {
@@ -46,7 +47,6 @@ h1 {
 .stTextArea > div > div > textarea {
     background-color: #2A2A2A;
     color: #ffffff;
-    border: 1px solid #76B900;
 }
 
 .nvidia-green {
@@ -87,6 +87,10 @@ h1 {
     color: #ffffff;
 }
 
+.stSelectbox {
+    margin-bottom: -28px;
+}
+
 .stRadio > label {
     font-size: 1.2em;
     color: #ffffff;
@@ -102,4 +106,16 @@ h1 {
 
 .stRadio > div > label:hover {
     background-color: transparent;
+}
+
+.stTabs [data-baseweb="tab"] {
+    font-size: 1.5em !important; /* Increase font size */
+    font-weight: bold !important; /* Make it bold */
+    color: #ffffff !important; /* Set color to white */
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+    font-size: 3em; /* Increase font size */
+    font-weight: bold; /* Make it bold */
+    color: #76B900; /* Optional: Change color */
 }

@@ -85,20 +85,18 @@ def main():
             )
         with col3:
             st.empty()
-    st.markdown("---")  # Horizontal line for separation
 
     # Check server health
     if not check_server_health():
         st.error("Error: Unable to connect to the server. Please ensure the Flask backend is running.")
         st.stop()
 
-    # Navigation tabs
-    tabs = st.tabs(["🏠 Home", "📊 Visualization"])
+    tabs = st.tabs(["Home", "Visualization"])
 
     with tabs[0]:
         # Reduced font size for the header
         st.markdown(
-            "<h2 style='font-size:24px;'>Upload Documents and Enter Query</h2>",
+            "<h2 style='font-size:20px;'>Upload Documents</h2>",
             unsafe_allow_html=True
         )
 
@@ -134,7 +132,7 @@ def main():
 
         # Increase font size for the selectbox label
         st.markdown(
-            "<label style='font-size:1.2em;'>Select Vector Database for Query:</label>",
+            "<h2 style='font-size:20px;'>Select Vector Database for Query</h2>",
             unsafe_allow_html=True
         )
         vector_db_choice = st.selectbox(
@@ -145,8 +143,6 @@ def main():
             label_visibility="collapsed"
         )
         st.session_state.vector_db_choice = vector_db_choice  # Store vector database choice in session state
-
-        # Remove extra spacing between dropdown and text input
 
         # Query Input without label
         query = st.text_input("", placeholder="Type your question here...", key="query_input")
@@ -193,7 +189,7 @@ def main():
 
         # If user input is needed
         if st.session_state.need_user_input:
-            st.subheader("Additional Input Required")
+            st.markdown("<h2 style='font-size:20px;'>Additional Information Required</h2>", unsafe_allow_html=True)
             st.write("Please select a search tool:")
             # Remove space after the label
             selected_option = st.radio(
@@ -279,5 +275,5 @@ def main():
         else:
             st.info("Please generate an answer to view its visualization.")
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     main()
