@@ -2,9 +2,11 @@ import requests
 import streamlit as st
 import os
 import time
+import uuid
 from visualisation import call_visualisation
 
-# Function to check server health
+# Cached function to check server health every 60 seconds
+@st.cache_data(ttl=60)
 def check_server_health():
     try:
         response = requests.get('http://localhost:5050/health')
@@ -12,11 +14,9 @@ def check_server_health():
     except requests.exceptions.RequestException:
         return False
 
-
 def load_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
 
 # Progress Bar for File Uploads
 def file_upload_progress(files):
@@ -24,10 +24,9 @@ def file_upload_progress(files):
     total_files = len(files)
 
     for i, file in enumerate(files):
-        time.sleep(1)  # Simulate upload time
+        time.sleep(1)
         st.write(f"Processing {file.name} ...")
         progress_bar.progress((i + 1) / total_files)
-
 
 # Initialize session state variables
 if "answer" not in st.session_state:
@@ -36,7 +35,30 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
 if "query" not in st.session_state:
     st.session_state.query = ""
+if "vector_db_choice" not in st.session_state:
+    st.session_state.vector_db_choice = "Wiki"
+if "need_user_input" not in st.session_state:
+    st.session_state.need_user_input = False
+if "options" not in st.session_state:
+    st.session_state.options = []
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+if "user_choice_made" not in st.session_state:
+    st.session_state.user_choice_made = False
+if "user_choice" not in st.session_state:
+    st.session_state.user_choice = None
+if "show_suggestions" not in st.session_state:
+    st.session_state.show_suggestions = False
+if "selected_suggestion" not in st.session_state:
+    st.session_state.selected_suggestion = ""
 
+# Sample sentence suggestions
+suggestions = [
+    "Give timeline of events in World war 1",
+    "Give timeline of events in World war 2",
+    "Give all the steps for synthesis of Carbon Monoxide",
+    "Give all the steps for decomposition of Ozone"
+]
 
 def main():
     # Set Streamlit page configuration
@@ -61,23 +83,21 @@ def main():
     # Title
     st.markdown("<div class='stHeader'><h1>Sequence Reconstruction</h1></div>", unsafe_allow_html=True)
 
-    # Check server health
+    # Check server health with caching
     if not check_server_health():
         st.error("Error: Unable to connect to the server. Please ensure the Flask backend is running.")
         st.stop()
 
     # Tabs for navigation
-    tabs = st.tabs(["Home", "Visualization", "Gap Identification"])
+    tabs = st.tabs(["Home", "Visualization"])
 
     with tabs[0]:
-        # Using columns for layout adjustment
         col1, col2 = st.columns([3, 4])
 
         with col1:
             st.markdown('<h3 class="nvidia-green">Upload Documents and <br> Enter Query</h3>', unsafe_allow_html=True)
 
         with col2:
-            # File upload component (narrower width)
             uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
 
             if uploaded_files:
@@ -102,18 +122,43 @@ def main():
                     except requests.exceptions.RequestException as e:
                         st.error(f"Error connecting to the server: {str(e)}")
 
-        # Manually create a styled label for the query input
-        st.markdown("<h4 style='color: #ffffff; font-size: 1.5em; margin-bottom: 5px;'>Enter your Query for Sequence Reconstruction:</h4>", unsafe_allow_html=True)
+        # Add vector_db_choice dropdown
+        vector_db_choice = st.selectbox(
+            "Select the vector database for the query:",
+            ("Wiki", "ArXiv", "Custom"),
+            key="vector_db_selector",
+            index=["Wiki", "ArXiv", "Custom"].index(st.session_state.vector_db_choice)
+        )
+        st.session_state.vector_db_choice = vector_db_choice
 
-        # Query input for document Q&A
-        query = st.text_input(" ", key="query_input")
+        # Example queries dropdown with "Example Queries" inside (now moved above the query bar)
+        selected_suggestion = st.selectbox(
+            "",  # No label above the selectbox
+            options=["Example Queries"] + suggestions,
+            key="suggestions_selectbox",
+            index=0 if not st.session_state.selected_suggestion else suggestions.index(st.session_state.selected_suggestion) + 1
+            )
+        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
+        # Update query if a new suggestion is selected
+        if selected_suggestion != "Example Queries" and selected_suggestion != st.session_state.get('last_selected_suggestion'):
+            st.session_state.query = selected_suggestion
+            st.session_state['last_selected_suggestion'] = selected_suggestion
+            st.session_state.selected_suggestion = ""  # Reset the dropdown
+
+        # text input (moved below the dropdown)
+        query = st.text_input("Query Bar", key="query_input", value=st.session_state.query)
+
+        # Clear the last selected suggestion if the user manually changes the query
+        if query != st.session_state.get('last_selected_suggestion'):
+            st.session_state['last_selected_suggestion'] = None
         if st.button("Reconstruct Sequence"):
             if query:
                 st.session_state.query = query
                 try:
                     with st.spinner("Generating answer..."):
-                        response = requests.post('http://localhost:5050/ask', json={'question': query})
+                        # Send the query along with vector_db_choice to the server
+                        response = requests.post('http://localhost:5050/ask', json={'question': query, 'vector_db': st.session_state.vector_db_choice})
 
                     if response.status_code == 200:
                         st.session_state.answer = response.json()['answer']
@@ -125,6 +170,50 @@ def main():
                     st.error(f"Error connecting to the server: {str(e)}")
             else:
                 st.warning("Please enter a question before getting an answer.")
+        
+        # If user input is needed
+        if st.session_state.need_user_input:
+            with st.form("user_input_form"):
+                st.write("Please select a search tool:")
+                selected_option = st.radio("Search Tools", st.session_state.options, key="user_choice_radio")
+                submit_choice = st.form_submit_button("Submit Choice")
+                if submit_choice:
+                    if selected_option:
+                        st.session_state.user_choice = selected_option
+                        st.session_state.user_choice_made = True
+                        st.write(f"Submitting choice with Session ID: {st.session_state.session_id}")  # Debugging
+                        try:
+                            with st.spinner("Processing your choice..."):
+                                response = requests.post('http://localhost:5050/ask', json={
+                                    'question': st.session_state.query,
+                                    'vector_db_choice': st.session_state.vector_db_choice,
+                                    'user_choice': st.session_state.user_choice,
+                                    'session_id': st.session_state.session_id
+                                })
+
+                            response_data = response.json()
+                            if response.status_code == 200:
+                                if 'answer' in response_data:
+                                    st.session_state.answer = response_data['answer']
+                                    st.session_state.need_user_input = False
+                                    st.success("Answer generated!")
+                                elif response_data.get('need_user_input'):
+                                    # If more input is needed, update options
+                                    st.session_state.options = response_data['options']
+                                    st.session_state.need_user_input = True
+                                    st.session_state.user_choice_made = False
+                                    st.warning("Please select an option.")
+                                elif 'error' in response_data:
+                                    st.error(f"Error: {response_data['error']}")
+                                else:
+                                    st.error("Unexpected response from server.")
+                            else:
+                                error_message = response_data.get('error', 'Unknown error')
+                                st.error(f"Error: {error_message}")
+                        except Exception as e:
+                            st.error(f"Error connecting to the server: {str(e)}")
+                    else:
+                        st.warning("Please select an option before submitting.")
 
         if st.session_state.answer:
             st.markdown("<div class='answer-box'>", unsafe_allow_html=True)
@@ -136,17 +225,20 @@ def main():
                                file_name="answer.txt",
                                mime="text/plain")
             
-    with tabs[1]:
-        st.header("Visualization")
-        if st.session_state.answer:
-            call_visualisation(st.session_state.answer)
-        else:
-            st.write("Visualization content goes here.")
-
-    # Gap Identification Tab (can be extended with actual logic)
-    with tabs[2]:
-        st.header("Gap Identification")
-        st.write("Gap Identification content goes here.")
+            st.write("Did this answer your question?")
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("👍 Yes"):
+                    st.success("Thank you for your feedback!")
+            with col2:
+                if st.button("👎 No"):
+                    st.error("Sorry to hear that! We'll work on improving.")
+        with tabs[1]:
+            st.header("Visualization")
+            if st.session_state.answer:
+                call_visualisation(st.session_state.answer)
+            else:
+                st.write("Visualization content goes here.")
 
 
 if __name__ == "__main__":
