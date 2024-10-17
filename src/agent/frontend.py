@@ -1,12 +1,12 @@
+# frontend.py
+
 import requests
 import streamlit as st
 import os
 import uuid
+from visualisation import call_visualisation  # Ensure this module exists and is correctly implemented
 
-# Function to check server health
 import time
-import uuid
-from visualisation import call_visualisation
 
 # Cached function to check server health every 60 seconds
 @st.cache_data(ttl=60)
@@ -39,7 +39,7 @@ if "uploaded_files" not in st.session_state:
 if "query" not in st.session_state:
     st.session_state.query = ""
 if "vector_db_choice" not in st.session_state:
-    st.session_state.vector_db_choice = "Wiki"
+    st.session_state.vector_db_choice = "Custom"
 if "need_user_input" not in st.session_state:
     st.session_state.need_user_input = False
 if "options" not in st.session_state:
@@ -98,7 +98,7 @@ def main():
         st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h3>', unsafe_allow_html=True)
 
         # File uploader
-        uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
+        uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
 
         if uploaded_files:
             st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
@@ -242,7 +242,6 @@ def main():
                 call_visualisation(st.session_state.answer)
             else:
                 st.write("Visualization content goes here.")
-
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-# graph.py
+# src/agent/graph.py
 
 import os
 from dotenv import load_dotenv
@@ -6,7 +6,7 @@ import json
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma  # Updated import from langchain_chroma
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 from web_scrapers.search_tool_arxiv import ArxivSearchTool
@@ -26,9 +26,11 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Initialize LLMs
 llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
 llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
 
+# Define prompt templates
 seq_generator_instructions = """
 You are an expert at reconstructing sequences based on user questions.
 
@@ -129,6 +131,7 @@ Provide the binary score as a JSON with a single key 'score' and nothing else.
 
 retrieval_grader = grader_prompt | llm_json_mode | JsonOutputParser()
 
+# Initialize web search tools
 web_search_tool = TavilySearchResults(
     max_results=10,
     search_depth="advanced",
@@ -142,7 +145,7 @@ wikipedia = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=5, m
 
 arxiv_tool = ArxivSearchTool(max_results=5, save_folder="downloads")
 
-# Callable for Tavily
+# Define callable functions for web searches
 def search_tavily(query):
     """
     Perform a search using Tavily API and return the response.
@@ -171,7 +174,6 @@ def search_tavily(query):
         logging.error(f"Error during Tavily API call: {e}")
         return None
 
-# Callable for Arxiv
 def search_arxiv(query):
     """
     Perform a search using Arxiv API and return the response.
@@ -185,7 +187,6 @@ def search_arxiv(query):
         logging.error(f"Error during Arxiv API call: {e}")
         return None
 
-# Callable for Wikipedia
 def search_wikipedia(query):
     """
     Perform a search using Wikipedia API and return the response.
@@ -203,7 +204,6 @@ class GraphState(TypedDict):
     """
     Graph state is a dictionary that contains information we want to propagate to, and modify in, each graph node.
     """
-
     question: str
     generation: Any
     web_search: str
@@ -229,7 +229,7 @@ def retrieve(state):
         state (dict): The current graph state
 
     Returns:
-        state (dict): New key added to state, documents, that contains retrieved documents
+        dict: New key added to state, documents, that contains retrieved documents
     """
     logging.info("---RETRIEVE---")
     question = state["question"]
@@ -237,6 +237,7 @@ def retrieve(state):
     try:
         retriever = get_retriever(vector_db_choice)
         documents = retriever.invoke(question)
+        logging.info(f"Documents retrieved: {len(documents)}")
         return {"documents": documents}
     except Exception as e:
         logging.error(f"Error in retrieve node: {str(e)}")
@@ -251,7 +252,7 @@ def generate(state):
         state (dict): The current graph state
 
     Returns:
-        state (dict): New key added to state, generation, that contains LLM generation
+        dict: New key added to state, generation, that contains LLM generation
     """
     logging.info("---GENERATE---")
     question = state["question"]
@@ -261,16 +262,28 @@ def generate(state):
     try:
         if not documents:
             message = state.get("message", "No external sources were useful. Generating the answer based on the LLM's information.")
-            seq_generator_prompt = f"{message}\n\n{seq_generator_instructions}".format(context="", question=question)
+            seq_generator_prompt = seq_generator_instructions.format(context="", question=question)
         else:
             docs_txt = " ".join([doc.page_content for doc in documents])
             seq_generator_prompt = seq_generator_instructions.format(context=docs_txt, question=question)
 
         generation = llm.invoke([HumanMessage(content=seq_generator_prompt)])
-        if generation is None or not hasattr(generation, 'content'):
-            raise ValueError("LLM returned no content.")
-        logging.info(f"Generation: {generation.content}")
-        return {"generation": generation}
+        logging.info(f"Generation type: {type(generation)}")
+        logging.info(f"Generation content: {generation}")
+
+        # Handle different possible return types from llm.invoke()
+        if hasattr(generation, 'content'):
+            generated_text = generation.content
+        elif isinstance(generation, str):
+            generated_text = generation
+        else:
+            raise ValueError("LLM returned content in an unexpected format.")
+
+        if not generated_text:
+            raise ValueError("LLM returned empty content.")
+
+        logging.info(f"Generation: {generated_text}")
+        return {"generation": generated_text}
     except Exception as e:
         logging.error(f"Error during generation: {str(e)}")
         state['error'] = f"Error during generation: {str(e)}"
@@ -349,7 +362,7 @@ def grade_documents(state):
         state (dict): The current graph state
 
     Returns:
-        state (dict): Updates documents key with only filtered relevant documents
+        dict: Updates documents key with only filtered relevant documents
     """
     logging.info("---GRADE DOCUMENTS---")
     question = state["question"]
@@ -366,8 +379,8 @@ def grade_documents(state):
                 score = retrieval_grader.invoke(
                     {"question": question, "documents": d.page_content}
                 )
-                grade = score["score"]
-                if grade == "yes" or grade == 1 or grade == "1":
+                grade = score.get("score", 0)
+                if grade in ["yes", 1, "1"]:
                     filtered_docs.append(d)
                 else:
                     continue
@@ -397,10 +410,10 @@ def grade_generation(state):
     """
     logging.info("---GRADE GENERATION vs QUESTION---")
     question = state["question"]
-    generation = state["generation"]
+    generation = state.get("generation", "")
     try:
-        score = answer_grader.invoke({'question': question, 'generation': generation.content})
-        grade = score["score"]
+        score = answer_grader.invoke({'question': question, 'generation': generation})
+        grade = score.get("score", 0)
         if grade == "yes":
             logging.info("---DECISION: GENERATION ADDRESSES QUESTION---")
             return "useful"
@@ -414,18 +427,18 @@ def grade_generation(state):
 
 def decide_to_generate(state):
     """
-    Determines whether to generate an answer, or re-generate a question.
+    Determines whether to generate an answer, or re-perform web search.
 
     Args:
         state (dict): The current graph state
 
     Returns:
-        str: Binary decision for next node to call
+        str: Decision for next node to call
     """
-    search = state["search"]
+    search = state.get("search", "No")
     if search == "Yes":
         logging.info("---DECISION: PERFORM WEB SEARCH---")
-        return "search"
+        return "websearch"
     else:
         logging.info("---DECISION: GENERATE ANSWER---")
         return "generate"
@@ -434,7 +447,8 @@ def create_all_vectorstores():
     logging.info("Initializing vectorstores...")
     get_retriever("Wiki")
     get_retriever("ArXiv")
-    logging.info("All vectorstores created.")
+    get_retriever("Custom")  # Ensure Custom is also initialized
+    logging.info("All vectorstores initialized.")
 
 # Function to setup the workflow
 def setup_workflow():
@@ -444,31 +458,42 @@ def setup_workflow():
     if workflow is None or graph is None:  # Only set up if not already initialized
         workflow = StateGraph(GraphState)
 
-        # Adding the new nodes
-        workflow.add_node("websearch", web_search)
+        # Adding the nodes
         workflow.add_node("retrieve", retrieve)
-        workflow.add_node("generate", generate)
         workflow.add_node("grade_documents", grade_documents)
+        workflow.add_node("websearch", web_search)
+        workflow.add_node("generate", generate)
+        workflow.add_node("grade_generation", grade_generation)
 
-        # Adding the edges as per the new workflow
+        # Adding the edges
         workflow.add_edge(START, "retrieve")
         workflow.add_edge("retrieve", "grade_documents")
+
+        # Conditional edges based on grading documents
         workflow.add_conditional_edges(
             "grade_documents",
             decide_to_generate,
             {
-                "search": "websearch",
+                "websearch": "websearch",
                 "generate": "generate",
             },
         )
+
+        # Edge from websearch to generate
         workflow.add_edge("websearch", "generate")
+
+        # Edge from generate to grade_generation
+        workflow.add_edge("generate", "grade_generation")
+
+        # Conditional edges based on grading generation
         workflow.add_conditional_edges(
-            "generate",
-            grade_generation,
-            {"useful": END, "not useful": "retrieve"},
+            "grade_generation",
+            lambda state: "END" if state.get("grade") == "useful" else "retrieve",
+            {
+                "useful": END,
+                "not useful": "retrieve",
+            },
         )
-        # Ensure that the 'generate' node can also lead to 'END' directly
-        workflow.add_edge("generate", END)
 
         # Compiling the workflow without a checkpointer
         graph = workflow.compile()

@@ -1,12 +1,16 @@
-# app.py
+# src/agent/app.py
 
 from flask import Flask, request, jsonify
 import os
 import logging
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from src.agent.ingest import create_custom_vectorstore
-from src.agent.graph import setup_workflow, workflow, graph
+from src.agent.ingest import create_custom_vectorstore_from_file
+from src.agent.graph import workflow, graph
+import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -15,7 +19,7 @@ CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'txt', 'csv', 'pdf'}
+ALLOWED_EXTENSIONS = {'txt', 'csv', 'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
@@ -31,6 +35,7 @@ def allowed_file(filename):
 
 @app.route('/health', methods=['GET'])
 def health_check():
+    """Health check endpoint."""
     return jsonify({'status': 'healthy'}), 200
 
 @app.route('/upload', methods=['POST'])
@@ -62,22 +67,35 @@ def upload_file():
             # Read file contents
             try:
                 if filename.lower().endswith('.pdf'):
-                    from langchain_community.document_loaders import PyPDFLoader
-                    loader = PyPDFLoader(file_path)
+                    from langchain_community.document_loaders import PDFMinerLoader
+                    loader = PDFMinerLoader(file_path)
                     pdf_pages = loader.load_and_split()
                     for page in pdf_pages:
                         uploaded_docs.append({
                             "title": filename,
                             "text": page.page_content
                         })
+                elif filename.lower().endswith(('.txt', '.csv', '.docx')):
+                    if filename.lower().endswith('.docx'):
+                        from langchain_community.document_loaders import UnstructuredWordDocumentLoader
+                        loader = UnstructuredWordDocumentLoader(file_path)
+                        loaded_docs = loader.load()
+                        for doc in loaded_docs:
+                            uploaded_docs.append({
+                                "title": filename,
+                                "text": doc.page_content
+                            })
+                    else:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            file_content = f.read()
+                            uploaded_docs.append({
+                                "title": filename,
+                                "text": file_content
+                            })
+                    logging.info(f"Processed file: {filename}")
                 else:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        file_content = f.read()
-                        uploaded_docs.append({
-                            "title": filename,
-                            "text": file_content
-                        })
-                logging.info(f"Processed file: {filename}")
+                    logging.error(f"Unsupported file type: {filename}")
+                    return jsonify({'error': f"Unsupported file type: {filename}"}), 400
             except Exception as e:
                 logging.error(f"Error reading file {filename}: {str(e)}")
                 return jsonify({'error': f"Error reading file {filename}: {str(e)}"}), 500
@@ -91,11 +109,12 @@ def upload_file():
 
     # Create custom vector database with the uploaded documents
     try:
-        create_custom_vectorstore(uploaded_docs)
+        create_custom_vectorstore_from_file(uploaded_docs)
         logging.info("Custom vector database created successfully.")
     except Exception as e:
         logging.error(f"Error creating vector database: {str(e)}")
         return jsonify({'error': f"Failed to create vector database: {str(e)}"}), 500
+
     return jsonify({'status': 'Files uploaded and custom vector database created'}), 200
 
 def run_graph_workflow(question: str, vector_db_choice: str, session_id: str, user_choice: str = None):
@@ -140,8 +159,8 @@ def run_graph_workflow(question: str, vector_db_choice: str, session_id: str, us
                 if session_id in graph_states:
                     del graph_states[session_id]
                 logging.info("Generation completed successfully.")
-                return {'answer': generation.content}
-
+                return {'answer': generation}
+        
         if not output:
             logging.error("No output received from the graph.")
             return {'error': "Error: No output received from the AI."}
@@ -154,16 +173,18 @@ def run_graph_workflow(question: str, vector_db_choice: str, session_id: str, us
     return {'error': "Error: No generation found in the AI response."}
 
 @app.route('/ask', methods=['POST'])
-def ask():
+def ask_question():
+    """Handle AI queries."""
     try:
         data = request.json
-        if 'question' not in data:
+        if not data or 'question' not in data:
+            logging.error("No question provided in the request")
             return jsonify({'error': 'No question provided'}), 400
 
         question = data['question']
-        vector_db_choice = data.get('vector_db_choice', 'Wiki')
+        vector_db_choice = data.get('vector_db_choice', 'Custom')  # Set 'Custom' as default
         user_choice = data.get('user_choice', None)
-        session_id = data.get('session_id', 'default')
+        session_id = data.get('session_id', str(uuid.uuid4()))
 
         logging.info(f"Received question: {question}")
         logging.info(f"Selected vector database: {vector_db_choice}")
@@ -176,16 +197,19 @@ def ask():
         if 'answer' in response_data:
             return jsonify({'answer': response_data['answer']}), 200
         elif 'need_user_input' in response_data and response_data['need_user_input']:
-            return jsonify({'need_user_input': True, 'options': response_data['options'], 'session_id': response_data['session_id']}), 200
+            return jsonify({
+                'need_user_input': True,
+                'options': response_data['options'],
+                'session_id': response_data['session_id']
+            }), 200
         else:
             error = response_data.get('error', 'No answer generated by the AI.')
             return jsonify({'error': error}), 500
 
     except Exception as e:
-        logging.error(f"Error in ask: {str(e)}")
+        logging.error(f"Unexpected error during question processing: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    setup_workflow()  # Ensure the graph is set up
     app.run(debug=True, host='0.0.0.0', port=5050)
