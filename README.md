@@ -18,10 +18,12 @@ Deco-3801/
 │   └── agent/
 │       ├── .env
 │       ├── graph.py
+│       ├── frontend.py
 |       ├── app.py
 │       ├── ingest.py
 │       ├── langgraph.json
 │       └── requirements.txt
+│       ├── styles.css
 ├── web_scrapers/
 └── README.md
 ```
