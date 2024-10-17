@@ -1,5 +1,3 @@
-# frontend.py
-
 import requests
 import streamlit as st
 import os
@@ -69,7 +67,7 @@ def main():
     tabs = st.tabs(["Home", "Visualization"])
 
     with tabs[0]:
-        st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h2>', unsafe_allow_html=True)
+        st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h3>', unsafe_allow_html=True)
 
         # File uploader
         uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf'], accept_multiple_files=True, label_visibility="collapsed")
@@ -148,47 +146,46 @@ def main():
 
         # If user input is needed
         if st.session_state.need_user_input:
-            with st.form("user_input_form"):
-                st.write("Please select a search tool:")
-                selected_option = st.radio("Search Tools", st.session_state.options, key="user_choice_radio")
-                submit_choice = st.form_submit_button("Submit Choice")
-                if submit_choice:
-                    if selected_option:
-                        st.session_state.user_choice = selected_option
-                        st.session_state.user_choice_made = True
-                        st.write(f"Submitting choice with Session ID: {st.session_state.session_id}")  # Debugging
-                        try:
-                            with st.spinner("Processing your choice..."):
-                                response = requests.post('http://localhost:5050/ask', json={
-                                    'question': st.session_state.query,
-                                    'vector_db_choice': st.session_state.vector_db_choice,
-                                    'user_choice': st.session_state.user_choice,
-                                    'session_id': st.session_state.session_id
-                                })
+            st.write("Please select a search tool:")
+            selected_option = st.radio("Search Tools", st.session_state.options, key="user_choice_radio")
 
-                            response_data = response.json()
-                            if response.status_code == 200:
-                                if 'answer' in response_data:
-                                    st.session_state.answer = response_data['answer']
-                                    st.session_state.need_user_input = False
-                                    st.success("Answer generated!")
-                                elif response_data.get('need_user_input'):
-                                    # If more input is needed, update options
-                                    st.session_state.options = response_data['options']
-                                    st.session_state.need_user_input = True
-                                    st.session_state.user_choice_made = False
-                                    st.warning("Please select an option.")
-                                elif 'error' in response_data:
-                                    st.error(f"Error: {response_data['error']}")
-                                else:
-                                    st.error("Unexpected response from server.")
+            if st.button("Submit Choice"):
+                if selected_option:
+                    st.session_state.user_choice = selected_option
+                    st.session_state.user_choice_made = True
+
+                    try:
+                        with st.spinner("Processing your choice..."):
+                            response = requests.post('http://localhost:5050/ask', json={
+                                'question': st.session_state.query,
+                                'vector_db_choice': st.session_state.vector_db_choice,
+                                'user_choice': st.session_state.user_choice,
+                                'session_id': st.session_state.session_id
+                            })
+
+                        response_data = response.json()
+                        if response.status_code == 200:
+                            if 'answer' in response_data:
+                                st.session_state.answer = response_data['answer']
+                                st.session_state.need_user_input = False
+                                st.success("Answer generated!")
+                            elif response_data.get('need_user_input'):
+                                # If more input is needed, update options
+                                st.session_state.options = response_data['options']
+                                st.session_state.need_user_input = True
+                                st.session_state.user_choice_made = False
+                                st.warning("Please select an option.")
+                            elif 'error' in response_data:
+                                st.error(f"Error: {response_data['error']}")
                             else:
-                                error_message = response_data.get('error', 'Unknown error')
-                                st.error(f"Error: {error_message}")
-                        except Exception as e:
-                            st.error(f"Error connecting to the server: {str(e)}")
-                    else:
-                        st.warning("Please select an option before submitting.")
+                                st.error("Unexpected response from server.")
+                        else:
+                            error_message = response_data.get('error', 'Unknown error')
+                            st.error(f"Error: {error_message}")
+                    except Exception as e:
+                        st.error(f"Error connecting to the server: {str(e)}")
+                else:
+                    st.warning("Please select an option before submitting.")
 
         # Display the answer if available
         if st.session_state.answer:
