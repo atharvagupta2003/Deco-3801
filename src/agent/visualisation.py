@@ -6,10 +6,19 @@ import re
 def list_steps(sequence):
     # Split the input string into lines
     lines = sequence.split("\n")
+    # Determine the type of sequence from the first line
+    sequence_type = ""
+    if lines[0].startswith("The following is a timeline sequence"):
+        sequence_type = "timeline"
+    elif lines[0].startswith("The following is a chemical sequence"):
+        sequence_type = "chemical"
+    else:
+        sequence_type = "other"
+    
     # Extract lines that contain steps
     steps = [line.strip() for line in lines if "Step" in line]
     print(steps)
-    return (steps)
+    return steps, sequence_type
 
 
 def extract_timeline_events(steps):
@@ -64,8 +73,8 @@ def plot_large_timeline(sequence):
     years (list): A list of years (as strings) corresponding to the events.
     events (list): A list of event descriptions.
     """
-    years = extract_steps_with_years_events(list_steps(sequence))[0]
-    events = extract_steps_with_years_events(list_steps(sequence))[1]
+    years = extract_steps_with_years_events(list_steps(sequence)[0])[0]
+    events = extract_steps_with_years_events(list_steps(sequence)[0])[1]
     
     if len(years) != len(events):
         raise ValueError("The length of 'years' and 'events' must be the same.")
@@ -108,6 +117,7 @@ def plot_large_timeline(sequence):
     st.pyplot(fig)
 
 
+
 def extract(step_lines):
     events = []
     for step_line in step_lines:
@@ -118,8 +128,6 @@ def extract(step_lines):
         # not a timeline event so the second part becomes the node
         events.append(step_parts[1])
     return events
-
-
 def visualize_linked_list_with_heading(elements):
     # Generate steps for each element
     elements_with_steps = [f"Step {i + 1}: {element}" for i, element in enumerate(elements)]
@@ -137,12 +145,24 @@ def visualize_linked_list_with_heading(elements):
                 margin: 0;
                 padding: 0;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+                background: #0B0B0B; /* Dark background to contrast with container */
                 display: flex;
-                flex-direction: column;
                 justify-content: center;
                 align-items: center;
                 height: 100vh;
+            }}
+
+            .outer-container {{
+                background: linear-gradient(135deg, #76B900, #0B0B0B);
+                padding: 20px;
+                border-radius: 30px; /* Rounded edges for the entire container */
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 95%;  /* Increased width to make it longer */
+                max-height: 90%;
+                overflow: hidden;
             }}
 
             .heading {{
@@ -151,7 +171,6 @@ def visualize_linked_list_with_heading(elements):
                 text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
                 margin-bottom: 30px;
                 font-weight: bold;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 background-color: rgba(0, 0, 0, 0.2);
                 padding: 10px 20px;
                 border-radius: 10px;
@@ -162,13 +181,15 @@ def visualize_linked_list_with_heading(elements):
                 align-items: center;
                 justify-content: center;
                 flex-wrap: wrap;
-                max-width: 90%;
+                max-width: 100%;
+                border-radius: 15px; /* Rounded edges for linked list container */
+                padding: 20px; /* Added padding to spread out nodes a bit more */
             }}
 
             .node {{
-                background-color: #ff6f61;
+                background-color: #76B900;
                 color: white;
-                padding: 15px 20px;
+                padding: 15px 30px; /* Increased padding for larger nodes */
                 margin: 15px;
                 border-radius: 30px;
                 position: relative;
@@ -184,23 +205,23 @@ def visualize_linked_list_with_heading(elements):
             }}
 
             .arrow {{
-                width: 60px;
+                width: 80px; /* Increased width for longer arrows */
                 height: 4px;
-                background-color: #ffffff;
+                background-color: #D22F27; /* NVIDIA Red */
                 margin: 10px;
                 position: relative;
-                border-radius: 2px;
+                border-radius: 15px; /* Rounded edges for the arrows */
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
             }}
 
-            .arrow:before {{
+            .arrow:after {{
                 content: "";
                 position: absolute;
-                top: -7px;
+                top: -6px;
                 right: -12px;
-                border-top: 12px solid transparent;
-                border-left: 12px solid white;
-                border-bottom: 12px solid transparent;
+                border-top: 10px solid transparent;
+                border-left: 12px solid #D22F27;
+                border-bottom: 10px solid transparent;
             }}
 
             /* Responsive behavior */
@@ -211,14 +232,16 @@ def visualize_linked_list_with_heading(elements):
                 }}
 
                 .arrow {{
-                    width: 40px;
+                    width: 50px; /* Reduced width for smaller screens */
                 }}
             }}
         </style>
     </head>
     <body>
-        <div class="heading">Visualization for Reconstruction</div>
-        <div class="linked-list" id="linked-list"></div>
+        <div class="outer-container">
+            <div class="heading">Visualization for Reconstruction</div>
+            <div class="linked-list" id="linked-list"></div>
+        </div>
 
         <script>
             // Function to generate the linked list dynamically with steps
@@ -257,9 +280,8 @@ def visualize_linked_list_with_heading(elements):
 
 
 def call_visualisation(sequence):
-    print(extract_timeline_events(list_steps(sequence)))
-    if (extract_timeline_events(list_steps(sequence))):
+    if (list_steps(sequence)[1]) == "timeline":
         plot_large_timeline(sequence)
     else:
-        visualize_linked_list_with_heading(extract(list_steps(sequence)))
+        visualize_linked_list_with_heading(extract(list_steps(sequence)[0]))
 
