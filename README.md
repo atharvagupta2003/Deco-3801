@@ -6,7 +6,7 @@ This project aims to develop a pipeline for the reconstruction of sequential inf
 
 **External Industry Client/Advisor**: NVIDIA
 
-![readme_demo.gif](readme_demo.gif)
+![](readme.gif)
 
 ## Project Structure
 
