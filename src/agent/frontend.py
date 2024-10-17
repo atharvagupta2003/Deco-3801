@@ -5,7 +5,6 @@ import streamlit as st
 import os
 import uuid
 from visualisation import call_visualisation  # Ensure this module exists and is correctly implemented
-
 import time
 
 # Cached function to check server health every 60 seconds
@@ -18,8 +17,11 @@ def check_server_health():
         return False
 
 def load_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    if os.path.exists(file_name):
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    else:
+        st.error(f"CSS file not found: {file_name}")
 
 # Progress Bar for File Uploads
 def file_upload_progress(files):
@@ -27,9 +29,9 @@ def file_upload_progress(files):
     total_files = len(files)
 
     for i, file in enumerate(files):
-        time.sleep(1)
-        st.write(f"Processing {file.name} ...")
+        time.sleep(0.5)  # Simulate processing time
         progress_bar.progress((i + 1) / total_files)
+    progress_bar.empty()  # Remove progress bar after completion
 
 # Initialize session state variables
 if "answer" not in st.session_state:
@@ -55,14 +57,6 @@ if "show_suggestions" not in st.session_state:
 if "selected_suggestion" not in st.session_state:
     st.session_state.selected_suggestion = ""
 
-# Sample sentence suggestions
-suggestions = [
-    "Give timeline of events in World war 1",
-    "Give timeline of events in World war 2",
-    "Give all the steps for synthesis of Carbon Monoxide",
-    "Give all the steps for decomposition of Ozone"
-]
-
 def main():
     # Set Streamlit page configuration
     st.set_page_config(
@@ -74,39 +68,52 @@ def main():
 
     # Load the external CSS file
     css_file = os.path.join(os.path.dirname(__file__), "styles.css")
-    if os.path.exists(css_file):
-        load_css(css_file)
-    else:
-        st.error(f"CSS file not found: {css_file}")
+    load_css(css_file)
 
-    # NVIDIA logo
-    st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">',
-                unsafe_allow_html=True)
-
-    # Title
-    st.markdown("<div class='stHeader'><h1>Sequence Reconstruction</h1></div>", unsafe_allow_html=True)
+    # Header Section
+    with st.container():
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            st.image(
+                "https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg",
+                width=150,
+            )
+        with col2:
+            st.markdown(
+                "<h1 style='color: #76B900; text-align: center;'>Sequence Reconstruction</h1>",
+                unsafe_allow_html=True
+            )
+        with col3:
+            st.empty()
+    st.markdown("---")  # Horizontal line for separation
 
     # Check server health
     if not check_server_health():
         st.error("Error: Unable to connect to the server. Please ensure the Flask backend is running.")
         st.stop()
 
-    # Navigation tabs without icons
-    tabs = st.tabs(["Home", "Visualization"])
+    # Navigation tabs
+    tabs = st.tabs(["🏠 Home", "📊 Visualization"])
 
     with tabs[0]:
-        st.markdown('<h3 class="nvidia-green">Upload Documents and Enter Query</h3>', unsafe_allow_html=True)
+        # Reduced font size for the header
+        st.markdown(
+            "<h2 style='font-size:24px;'>Upload Documents and Enter Query</h2>",
+            unsafe_allow_html=True
+        )
 
         # File uploader
-        uploaded_files = st.file_uploader(" ", type=['txt', 'csv', 'pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+        uploaded_files = st.file_uploader(
+            "",
+            type=['txt', 'csv', 'pdf', 'docx'],
+            accept_multiple_files=True,
+            label_visibility="collapsed"
+        )
 
         if uploaded_files:
             st.session_state.uploaded_files = uploaded_files  # Store uploaded files in session state
 
-            # Display file details
-            for file in uploaded_files:
-                st.write(f"File: {file.name}, Size: {file.size} bytes")
-
+            # Button to process files
             if st.button("Process Files"):
                 try:
                     files = [('file', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
@@ -115,26 +122,38 @@ def main():
 
                     if response.status_code == 200:
                         st.success("Files uploaded and processed successfully!")
+                        file_upload_progress(uploaded_files)  # Show progress bar
                     else:
                         error_message = response.json().get('error', 'Unknown error') if response.content else 'No response from server'
                         st.error(f"Error uploading files. Status code: {response.status_code}. Message: {error_message}")
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error connecting to the server: {str(e)}")
 
-        # Dropdown for vector database selection
+        # Vector Database Selection and Query Input
+        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
+
+        # Increase font size for the selectbox label
+        st.markdown(
+            "<label style='font-size:1.2em;'>Select Vector Database for Query:</label>",
+            unsafe_allow_html=True
+        )
         vector_db_choice = st.selectbox(
-            "Select the vector database for the query:",
+            "",
             ("Wiki", "ArXiv", "Custom"),
-            key="vector_db_selector"
+            index=2,  # Default to "Custom"
+            key="vector_db_selector",
+            label_visibility="collapsed"
         )
         st.session_state.vector_db_choice = vector_db_choice  # Store vector database choice in session state
 
-        # Query input for document Q&A
-        query = st.text_input("Enter your query for sequence reconstruction:")
+        # Remove extra spacing between dropdown and text input
+
+        # Query Input without label
+        query = st.text_input("", placeholder="Type your question here...", key="query_input")
 
         # Reconstruct Sequence button
-        if st.button("Reconstruct Sequence", disabled=st.session_state.need_user_input):
-            if query:
+        if st.button("Reconstruct Sequence"):
+            if query.strip():
                 st.session_state.query = query
                 st.session_state.session_id = str(uuid.uuid4())
                 st.session_state.answer = ""  # Reset previous answer
@@ -170,12 +189,19 @@ def main():
                 except Exception as e:
                     st.error(f"Error connecting to the server: {str(e)}")
             else:
-                st.warning("Please enter a question before proceeding.")
+                st.warning("Please enter a valid question before proceeding.")
 
         # If user input is needed
         if st.session_state.need_user_input:
+            st.subheader("Additional Input Required")
             st.write("Please select a search tool:")
-            selected_option = st.radio("Search Tools", st.session_state.options, key="user_choice_radio")
+            # Remove space after the label
+            selected_option = st.radio(
+                "",
+                st.session_state.options,
+                key="user_choice_radio",
+                label_visibility="collapsed"
+            )
 
             if st.button("Submit Choice"):
                 if selected_option:
@@ -217,31 +243,41 @@ def main():
 
         # Display the answer if available
         if st.session_state.answer:
-            st.markdown("<div class='answer-box'>", unsafe_allow_html=True)
-            st.write("Answer:", st.session_state.answer)
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.subheader("Answer:")
+            st.markdown(
+                f"""
+                <div class='answer-box'>
+                    {st.session_state.answer}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
             # Download button for generated results
-            st.download_button(label="Download Answer",
-                               data=st.session_state.answer,
-                               file_name="answer.txt",
-                               mime="text/plain")
+            st.download_button(
+                label="Download Answer",
+                data=st.session_state.answer,
+                file_name="answer.txt",
+                mime="text/plain"
+            )
 
             # User Feedback Mechanism
-            st.write("Did this answer your question?")
-            col1, col2 = st.columns([1, 1])
+            st.markdown("---")  # Separation
+            st.subheader("Did this answer your question?")
+            col1, col2 = st.columns(2)
             with col1:
                 if st.button("👍 Yes"):
                     st.success("Thank you for your feedback!")
             with col2:
                 if st.button("👎 No"):
                     st.error("Sorry to hear that! We'll work on improving.")
-        with tabs[1]:
-            st.header("Visualization")
-            if st.session_state.answer:
-                call_visualisation(st.session_state.answer)
-            else:
-                st.write("Visualization content goes here.")
+
+    with tabs[1]:
+        st.header("Visualization")
+        if st.session_state.answer:
+            call_visualisation(st.session_state.answer)
+        else:
+            st.info("Please generate an answer to view its visualization.")
 
 if __name__ == "__main__":
     main()

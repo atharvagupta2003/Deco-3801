@@ -1,3 +1,5 @@
+/* styles.css */
+
 .stApp {
     background-color: #000000;
     color: #ffffff;
@@ -5,10 +7,10 @@
 
 .stButton > button {
     background-color: #76B900;
-    color: #000000;
+    color: #ffffff;
     border: none;
     padding: 0.7rem 1.7rem;
-    font-weight: bold;
+    font-weight: bold; /* Make button text bold */
     border-radius: 15px;
 }
 
@@ -17,13 +19,14 @@
 }
 
 h1 {
-    color: #ffffff;
+    color: #76B900;
     font-size: 3.5em;
     margin-bottom: 20px;
+    text-align: center; /* Center the title */
 }
 
 .nvidia-logo {
-    width: 100px;
+    width: 150px;
     margin-bottom: 0px;
 }
 
@@ -49,7 +52,7 @@ h1 {
 .nvidia-green {
     color: #76B900;
     font-size: 2em;
-    margin-bottom: 40px
+    margin-bottom: 40px;
 }
 
 .stTabs {
@@ -60,13 +63,43 @@ h1 {
     margin-right: 30px;
 }
 
-.stTextInput > label {
-    font-size: 3em;
-    color: #000000;
-    font-weight: bold;
-    margin-bottom: 10px;
+.stTextInput > div > input {
+    background-color: #2A2A2A;
+    color: #ffffff;
+    border: 2px solid #76B900;  /* Made outline slightly bigger */
 }
 
-.stTextInput > div {
-    margin-top: -50px;
+.stTextInput > div > input:hover {
+    border: 2px solid #76B900;  /* Remove red outline on hover */
+}
+
+.stSelectbox > div > div > div {
+    font-size: 1em;
+    color: #ffffff;
+}
+
+.stSelectbox > div > div > div:hover {
+    border: none;  /* Remove red outline on hover */
+}
+
+.stSelectbox > div > label {
+    font-size: 1.2em; /* Slightly bigger label */
+    color: #ffffff;
+}
+
+.stRadio > label {
+    font-size: 1.2em;
+    color: #ffffff;
+}
+
+.stRadio > div {
+    margin-top: -10px;
+}
+
+.stRadio > div > label {
+    color: #ffffff;
+}
+
+.stRadio > div > label:hover {
+    background-color: transparent;
 }
