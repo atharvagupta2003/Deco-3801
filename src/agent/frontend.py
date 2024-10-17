@@ -73,7 +73,7 @@ def main():
     )
 
     # Load the external CSS file
-    css_file = os.path.join(os.path.dirname(_file_), "styles.css")
+    css_file = os.path.join(os.path.dirname(__file__), "styles.css")
     if os.path.exists(css_file):
         load_css(css_file)
     else:
