@@ -5,7 +5,7 @@
 
 .stButton > button {
     background-color: #76B900;
-    color: #ffffff;
+    color: #000000;
     border: none;
     padding: 0.7rem 1.7rem;
     font-weight: bold;
@@ -31,7 +31,7 @@ h1 {
     background-color: #2A2A2A;
     border-radius: 5px;
     padding: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .browse-files {
@@ -60,19 +60,13 @@ h1 {
     margin-right: 30px;
 }
 
-.prompt-request {
-    color: #ffffff;
-    font-size: 1em;
-}
-
-/* Specific styling for the query input label */
 .stTextInput > label {
-    font-size: 3em;   /* Increase font size */
-    color: #ffffff;   /* Change color */
-    font-weight: bold; /* Make it bold */
+    font-size: 3em;
+    color: #000000;
+    font-weight: bold;
     margin-bottom: 10px;
 }
 
 .stTextInput > div {
-    margin-top: -34px; /* Reduces space between label and input */
+    margin-top: -50px;
 }
