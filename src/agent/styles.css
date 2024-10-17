@@ -5,11 +5,11 @@
 
 .stButton > button {
     background-color: #76B900;
-    color: #ffffff;
+    color: #000000;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: 0.7rem 1.7rem;
     font-weight: bold;
-    border-radius: 5px;
+    border-radius: 15px;
 }
 
 .stButton > button:hover {
@@ -18,19 +18,20 @@
 
 h1 {
     color: #ffffff;
-    font-size: 2.5em;
+    font-size: 3.5em;
+    margin-bottom: 20px;
 }
 
 .nvidia-logo {
     width: 100px;
-    margin-bottom: 20px;
+    margin-bottom: 0px;
 }
 
 .file-uploader {
     background-color: #2A2A2A;
     border-radius: 5px;
     padding: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .browse-files {
@@ -47,6 +48,8 @@ h1 {
 
 .nvidia-green {
     color: #76B900;
+    font-size: 2em;
+    margin-bottom: 40px
 }
 
 .stTabs {
@@ -55,4 +58,15 @@ h1 {
 
 .stTabs div[role="tablist"] > div {
     margin-right: 30px;
+}
+
+.stTextInput > label {
+    font-size: 3em;
+    color: #000000;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.stTextInput > div {
+    margin-top: -50px;
 }

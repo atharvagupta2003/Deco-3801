@@ -4,6 +4,12 @@ import os
 import uuid
 
 # Function to check server health
+import time
+import uuid
+from visualisation import call_visualisation
+
+# Cached function to check server health every 60 seconds
+@st.cache_data(ttl=60)
 def check_server_health():
     try:
         response = requests.get('http://localhost:5050/health')
@@ -14,6 +20,16 @@ def check_server_health():
 def load_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Progress Bar for File Uploads
+def file_upload_progress(files):
+    progress_bar = st.progress(0)
+    total_files = len(files)
+
+    for i, file in enumerate(files):
+        time.sleep(1)
+        st.write(f"Processing {file.name} ...")
+        progress_bar.progress((i + 1) / total_files)
 
 # Initialize session state variables
 if "answer" not in st.session_state:
@@ -34,6 +50,18 @@ if "user_choice_made" not in st.session_state:
     st.session_state.user_choice_made = False
 if "user_choice" not in st.session_state:
     st.session_state.user_choice = None
+if "show_suggestions" not in st.session_state:
+    st.session_state.show_suggestions = False
+if "selected_suggestion" not in st.session_state:
+    st.session_state.selected_suggestion = ""
+
+# Sample sentence suggestions
+suggestions = [
+    "Give timeline of events in World war 1",
+    "Give timeline of events in World war 2",
+    "Give all the steps for synthesis of Carbon Monoxide",
+    "Give all the steps for decomposition of Ozone"
+]
 
 def main():
     # Set Streamlit page configuration
@@ -45,11 +73,11 @@ def main():
     )
 
     # Load the external CSS file
-    css_file = os.path.join(os.path.dirname(__file__), "styles.css")
+    css_file = os.path.join(os.path.dirname(_file_), "styles.css")
     if os.path.exists(css_file):
         load_css(css_file)
     else:
-        st.write("CSS file not found.")
+        st.error(f"CSS file not found: {css_file}")
 
     # NVIDIA logo
     st.markdown('<img src="https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg" class="nvidia-logo">',
@@ -208,11 +236,13 @@ def main():
             with col2:
                 if st.button("👎 No"):
                     st.error("Sorry to hear that! We'll work on improving.")
+        with tabs[1]:
+            st.header("Visualization")
+            if st.session_state.answer:
+                call_visualisation(st.session_state.answer)
+            else:
+                st.write("Visualization content goes here.")
 
-    # Visualization Tab (can be extended with actual visualizations)
-    with tabs[1]:
-        st.header("Visualization")
-        st.write("Visualization content goes here.")
 
 if __name__ == "__main__":
     main()
