@@ -67,7 +67,7 @@ create tavily api key by clicking [here](https://docs.tavily.com/docs/gpt-resear
 
 ### 3. Start the backend server
 ```bash
-python -m .\src\agent\app.py
+python -m src.agent.app
 ```
 
 ### 4. Start the frontend

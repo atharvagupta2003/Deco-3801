@@ -53,7 +53,7 @@ langgraph-checkpoint
 langsmith
 langgraph
 marshmallow
-matplotlib-inline
+matplotlib
 mdurl
 multidict
 mypy-extensions
