@@ -36,18 +36,26 @@ You are an expert at reconstructing sequences based on user questions.
 
 Using the provided {context}, answer the user's question in a step-by-step format.
 
+If the sequence is a timeline or a chemical sequence, start your answer with:
+- "The following is a timeline sequence" or
+- "The following is a chemical sequence"
+If the sequence is neither of these, do not include this line.
+
 Structure your answer as follows:
-Step 1:
-Step 2:
-Step 3:
+Step 1: Heading
+Explanation
+Step 2: Heading
+Explanation
+Step 3: Heading
+Explanation
 ...
 
-**Important Instructions:**
-- **If timeline reconstruction is involved, present each event in a separate step, sequenced based on the date of the event,
-    with the date included and a brief explanation.**
-- **Always include the source with your answer.**
-- **Ensure that reactions are presented in their particular order, with explanations for each.**
-- **Include an explanation for each step and any reactions involved.**
+*Important Instructions:*
+- *If timeline reconstruction is involved, present each event in a separate step, sequenced based on the date of the event, with the date included and a brief explanation.*
+  - For timelines, use the format: Step 1: Date - Event
+- *Always include the source with your answer.*
+- *Ensure that reactions are presented in their particular order, with explanations for each.*
+- *Include an explanation for each step and any reactions involved.*
 
 Question: {question}
 Answer:"""
