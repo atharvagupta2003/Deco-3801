@@ -1,3 +1,5 @@
+/* styles.css */
+
 .stApp {
     background-color: #000000;
     color: #ffffff;
@@ -8,29 +10,32 @@
     color: #ffffff;
     border: none;
     padding: 0.5rem 1rem;
-    font-weight: bold;
-    border-radius: 5px;
+    font-weight: bolder; /* Make button text bold */
+    border-radius: 15px;
 }
 
 .stButton > button:hover {
     background-color: #5c9100;
+    color: #f0f0f0;
 }
 
 h1 {
-    color: #ffffff;
-    font-size: 2.5em;
+    color: #76B900;
+    font-size: 3.5em;
+    margin-bottom: 20px;
+    text-align: center; /* Center the title */
 }
 
 .nvidia-logo {
-    width: 100px;
-    margin-bottom: 20px;
+    width: 150px;
+    margin-bottom: 0px;
 }
 
 .file-uploader {
     background-color: #2A2A2A;
     border-radius: 5px;
     padding: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .browse-files {
@@ -42,11 +47,12 @@ h1 {
 .stTextArea > div > div > textarea {
     background-color: #2A2A2A;
     color: #ffffff;
-    border: 1px solid #76B900;
 }
 
 .nvidia-green {
     color: #76B900;
+    font-size: 2em;
+    margin-bottom: 40px;
 }
 
 .stTabs {
@@ -55,4 +61,61 @@ h1 {
 
 .stTabs div[role="tablist"] > div {
     margin-right: 30px;
+}
+
+.stTextInput > div > input {
+    background-color: #2A2A2A;
+    color: #ffffff;
+    border: 2px solid #76B900;  /* Made outline slightly bigger */
+}
+
+.stTextInput > div > input:hover {
+    border: 2px solid #76B900;  /* Remove red outline on hover */
+}
+
+.stSelectbox > div > div > div {
+    font-size: 1em;
+    color: #ffffff;
+}
+
+.stSelectbox > div > div > div:hover {
+    border: none;  /* Remove red outline on hover */
+}
+
+.stSelectbox > div > label {
+    font-size: 1.2em; /* Slightly bigger label */
+    color: #ffffff;
+}
+
+.stSelectbox {
+    margin-bottom: -28px;
+}
+
+.stRadio > label {
+    font-size: 1.2em;
+    color: #ffffff;
+}
+
+.stRadio > div {
+    margin-top: -10px;
+}
+
+.stRadio > div > label {
+    color: #ffffff;
+}
+
+.stRadio > div > label:hover {
+    background-color: transparent;
+}
+
+.stTabs [data-baseweb="tab"] {
+    font-size: 1.5em !important; /* Increase font size */
+    font-weight: bold !important; /* Make it bold */
+    color: #ffffff !important; /* Set color to white */
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+    font-size: 3em; /* Increase font size */
+    font-weight: bold; /* Make it bold */
+    color: #76B900; /* Optional: Change color */
 }

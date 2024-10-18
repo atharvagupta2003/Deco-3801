@@ -1,0 +1,55 @@
+<<<<<<< HEAD
+# Ignore virtual environment directories
+venv/
+env/
+ENV/
+venv/
+# Ignore environment variable files
+.env
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+# C extensions
+*.c
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.manifest
+*.spec
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+# PyCharm
+.idea/
+# VS Code
+.vscode/
+# MacOS files
+.DS_Store
+# Log files
+*.log
+# Data directories
+data/research_papers/
+chroma_db/
+#Ignore langcgain academy directories
+langchain-academy/
+lc-academy-env/
+chroma_arxiv/
+chroma_custom/
+chroma_wiki/
+downloads/

@@ -65,6 +65,7 @@ pydantic
 pydantic-settings
 pydantic_core
 Pygments
+pypdf
 python-dotenv
 PyYAML
 requests
