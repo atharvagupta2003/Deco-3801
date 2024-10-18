@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Ignore virtual environment directories
 venv/
 env/
@@ -53,3 +52,4 @@ chroma_arxiv/
 chroma_custom/
 chroma_wiki/
 downloads/
+uploads/
