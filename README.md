@@ -36,8 +36,8 @@ First, create and activate a virtual environment in the root directory:
 
 ```bash
 cd Deco-3801
-python3 -m venv venv (MacOS)
-source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate (MacOS)
 
 ./venv/Scripts/activate (Windows)
 ```
