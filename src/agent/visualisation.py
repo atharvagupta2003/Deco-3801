@@ -1,36 +1,32 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-import re
 
 def list_steps(sequence):
     # Split the input string into lines
     lines = sequence.split("\n")
     # Extract lines that contain steps
     steps = [line.strip() for line in lines if "Step" in line]
-    print(steps)
+  
     return (steps)
 
+def check(step_lines):
+    value = 0
+    for step_line in step_lines:
+        step_parts = step_line.split(": ", 1)
+        if "-" in step_parts[1]:
+            value = 1
+    return value
 
-def extract_timeline_events(steps):
-    # Regular expression to identify timeline events, including various date formats
-    pattern = r"Step \d+: (?P<date>\b(?:\d{1,4}(?:[\s\-,/\.]\d{1,2})?(?:[\s\-,/\.]\d{1,4})?|\w+ \d{1,2}, \d{4}|\d{1,4}\s?(?:BCE|CE|bc|ad|AD)?)\b) - (?P<event>.+?)"
-    
-    for step in steps:
-        # Remove any leading or trailing asterisks and spaces
-        step = step.strip('*').strip()
-        # Each step is a string containing the date and event
-        match = re.match(pattern, step)
-        if match:
-            date = match.group('date') if 'date' in match.groupdict() else None
-            event = match.group('event') if 'event' in match.groupdict() else None
-            if date and event:
-                return True
-    return False
+
+
+
+
 
 def extract_steps_with_years_events(step_lines):
     years = []
     events = []
+    check(step_lines)
     for step_line in step_lines:
         # Split the step line by the colon to separate the step number and the rest
         step_parts = step_line.split(": ", 1)
@@ -217,7 +213,7 @@ def visualize_linked_list_with_heading(elements):
         </style>
     </head>
     <body>
-        <div class="heading">Visualization for Reconstruction</div>
+        <div class="heading">Visualization for Chemical Synthesis</div>
         <div class="linked-list" id="linked-list"></div>
 
         <script>
@@ -257,8 +253,7 @@ def visualize_linked_list_with_heading(elements):
 
 
 def call_visualisation(sequence):
-    print(extract_timeline_events(list_steps(sequence)))
-    if (extract_timeline_events(list_steps(sequence))):
+    if (check(list_steps(sequence))):
         plot_large_timeline(sequence)
     else:
         visualize_linked_list_with_heading(extract(list_steps(sequence)))
