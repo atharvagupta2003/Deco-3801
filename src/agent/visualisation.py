@@ -66,56 +66,53 @@ def extract_steps_with_years_events(step_lines):
 
 # Function to create the plot and directly display it in Streamlit
 def plot_large_timeline(sequence):
-    """
-    This function takes a list of years (as strings) and events and generates a visually appealing timeline.
-    
-    Parameters:
-    years (list): A list of years (as strings) corresponding to the events.
-    events (list): A list of event descriptions.
-    """
-    years = extract_steps_with_years_events(list_steps(sequence)[0])[0]
-    events = extract_steps_with_years_events(list_steps(sequence)[0])[1]
-    
+    years, events = extract_steps_with_years_events(list_steps(sequence)[0])
+
     if len(years) != len(events):
         raise ValueError("The length of 'years' and 'events' must be the same.")
     
-    # Colors for the events (to create gradient effect)
-    colors = plt.cm.plasma(np.linspace(0, 1, len(years)))
+    nvidia_green = "#76B900"
+    nvidia_red = "#D22F27"
+    dark_background = "#0B0B0B"
     
-    # Plotting the timeline
-    fig, ax = plt.subplots(figsize=(18, 8))  # Larger figure size for more space
+    fig, ax = plt.subplots(figsize=(38.4, 21.6), dpi=1200)
 
-    # Adding a horizontal line to represent the timeline
-    ax.plot([0, len(years)-1], [0, 0], color='gray', linewidth=2, alpha=0.5)
+    ax.plot([0, len(years) - 1], [0, 0], color='gray', linewidth=3, alpha=0.6)
 
-    # Scatter plot to mark the events with custom markers and gradient colors
-    ax.scatter(range(len(years)), [0]*len(years), color=colors, s=300, zorder=3, edgecolor='black')
+    colors = [nvidia_green] * len(years)
 
-    # Annotating events above and below the timeline, with rotated text for better visibility
+    ax.scatter(range(len(years)), [0] * len(years), color=colors, s=300, zorder=3, edgecolor=nvidia_red, linewidth=2)
+
     for i, (year, event) in enumerate(zip(years, events)):
-        y_pos = 0.3 if i % 2 == 0 else -0.3  # Alternate above and below the line
-        ax.text(i, y_pos, event, ha='center', fontsize=9, fontweight='bold', color=colors[i], rotation=45, rotation_mode='anchor')
-        ax.text(i, y_pos - 0.15 if i % 2 == 0 else y_pos + 0.15, year, ha='center', fontsize=8, color='black')
+        event = event.replace("**", "").strip()
+        
+        y_pos = 0.4 if i % 2 == 0 else -0.4
+        # Event text (larger and more readable)
+        ax.text(i, y_pos, event, ha='center', fontsize=16, fontweight='bold', color=nvidia_green, rotation=45, rotation_mode='anchor')
+        # Year text (larger size as well)
+        ax.text(i, y_pos - 0.2 if i % 2 == 0 else y_pos + 0.2, year, ha='center', fontsize=14, color='white')
 
-    # Adding vertical lines to connect the events to the timeline
     for i in range(len(years)):
-        ax.plot([i, i], [0, 0.2 if i % 2 == 0 else -0.2], color='gray', linestyle='--', alpha=0.7)
+        ax.plot([i, i], [0, 0.3 if i % 2 == 0 else -0.3], color='gray', linestyle='--', alpha=0.8)
 
-    # Customizing the plot aesthetics
+    # Customizing the plot aesthetics for NVIDIA theme
     ax.set_ylim(-0.6, 0.6)  # More vertical space for labels
     ax.get_yaxis().set_visible(False)
     ax.set_xlim(-1, len(years))
-    ax.set_title('Visualisation for timeline events', fontsize=16, fontweight='bold')
+    ax.set_title('Timeline Events Visualization', fontsize=28, fontweight='bold', color=nvidia_green)
 
-    # Hide axes
+    # Hide axes spines
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
 
-    # Show the plot in Streamlit using st.pyplot
-    st.pyplot(fig)
+    # Set dark background for NVIDIA theme
+    ax.set_facecolor(dark_background)
+    fig.patch.set_facecolor(dark_background)
 
+    # Display the high-resolution plot
+    st.pyplot(fig)
 
 
 def extract(step_lines):

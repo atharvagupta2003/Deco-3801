@@ -19,7 +19,6 @@ from src.agent.ingest import get_retriever
 from typing_extensions import TypedDict
 from typing import List, Any
 from langgraph.graph import StateGraph
-# from langchain_ollama import ChatOllama
 import logging
 
 load_dotenv()
@@ -27,10 +26,11 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Initialize LLMs
+# # Initialize LLMs
 llm = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0)
 llm_json_mode = ChatNVIDIA(model='meta/llama-3.1-405b-instruct', temperature=0, format='json')
 
+# from langchain_ollama import ChatOllama -- For Debugging Only
 # llm = ChatOllama(model='llama3.1', temperature=0)
 # llm_json_mode = ChatOllama(model='llama3.1', temperature=0, format='json')
 
