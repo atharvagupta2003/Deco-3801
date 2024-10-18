@@ -39,7 +39,7 @@ cd Deco-3801
 python3 -m venv venv
 source venv/bin/activate
 
-./vnev/Srcipts/activate (Windows)
+./venv/Srcipts/activate (Windows)
 ```
 
 ### 2. Install Project Dependencies
