@@ -53,7 +53,7 @@ if "user_choice_made" not in st.session_state:
 if "user_choice" not in st.session_state:
     st.session_state.user_choice = None
 if "show_suggestions" not in st.session_state:
-    st.session_state.show_suggestions = False
+    st.session_state.show_suggestions = False  # Track whether suggestions are visible
 if "selected_suggestion" not in st.session_state:
     st.session_state.selected_suggestion = ""
 
@@ -144,8 +144,35 @@ def main():
         )
         st.session_state.vector_db_choice = vector_db_choice  # Store vector database choice in session state
 
-        # Query Input without label
-        query = st.text_input("", placeholder="Type your question here...", key="query_input")
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        # Toggle button for showing/hiding example queries
+        if st.button("Suggestions"):
+            st.session_state.show_suggestions = not st.session_state.show_suggestions
+
+        # Conditionally display the suggestion dropdown
+        if st.session_state.show_suggestions:
+            suggestions = [
+                "Provide the timeline for the events in World War 2.",
+                "Sequence all of Napoleon's battles in order.",
+                "Give all the steps for synthesis of Carbon Monoxide.",
+                "What are the steps to create a neural network?"
+            ]
+
+            selected_suggestion = st.selectbox(
+                "",  # No label
+                options=["Select a suggestion..."] + suggestions,
+                key="suggestion_selector",
+                label_visibility="collapsed"
+            )
+
+            # Use the selected suggestion to populate the query input field
+            if selected_suggestion != "Select a suggestion...":
+                query = st.text_input("", value=selected_suggestion, key="query_input")
+            else:
+                query = st.text_input("", placeholder="Type your question here...", key="query_input")
+        else:
+            # Default input if no suggestion is shown
+            query = st.text_input("", placeholder="Type your question here...", key="query_input")
 
         # Reconstruct Sequence button
         if st.button("Reconstruct Sequence"):
@@ -275,5 +302,5 @@ def main():
         else:
             st.info("Please generate an answer to view its visualization.")
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
     main()
