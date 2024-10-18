@@ -36,10 +36,10 @@ First, create and activate a virtual environment in the root directory:
 
 ```bash
 cd Deco-3801
-python3 -m venv venv
+python3 -m venv venv (MacOS)
 source venv/bin/activate
 
-./venv/Srcipts/activate (Windows)
+./venv/Scripts/activate (Windows)
 ```
 
 ### 2. Install Project Dependencies
@@ -47,8 +47,7 @@ source venv/bin/activate
 Navigate to the src/agent directory and install the required dependencies:
 
 ```bash
-cd src/agent
-pip install -r requirements.txt
+pip install -r .\src\agent\requirements.txt
 ```
 
 ## How to run the Project
@@ -68,15 +67,13 @@ create tavily api key by clicking [here](https://docs.tavily.com/docs/gpt-resear
 
 ### 3. Start the backend server
 ```bash
-cd Deco-3801/src/agent
-python app.py
+python -m .\src\agent\app.py
 ```
 
 ### 4. Start the frontend
 open a new terminal
 ```bash
-cd Deco-3801/src/agent
-streamlit run frontend.py
+streamlit run .\src\agent\frontend.py
 ```
 
 
