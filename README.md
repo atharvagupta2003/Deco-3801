@@ -37,7 +37,10 @@ First, create and activate a virtual environment in the root directory:
 ```bash
 cd Deco-3801
 python3 -m venv venv
-source venv/bin/activate
+
+source venv/bin/activate (MacOS, Linux)
+
+./venv/Scripts/activate (Windows)
 ```
 
 ### 2. Install Project Dependencies
@@ -45,23 +48,20 @@ source venv/bin/activate
 Navigate to the src/agent directory and install the required dependencies:
 
 ```bash
-cd src/agent
-pip install -r requirements.txt
+pip install -r .\src\agent\requirements.txt
 ```
 
 ## How to run the Project
 
 ### 1. Start the backend server
 ```bash
-cd Deco-3801/src/agent
-python app.py
+python -m src.agent.app
 ```
 
 ### 2. Start the frontend
 open a new terminal
 ```bash
-cd Deco-3801/src/agent
-streamlit run frontend.py
+streamlit run .\src\agent\frontend.py
 ```
 
 
