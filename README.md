@@ -37,10 +37,9 @@ First, create and activate a virtual environment in the root directory:
 ```bash
 cd Deco-3801
 python3 -m venv venv
+source venv/bin/activate
 
-source venv/bin/activate (MacOS, Linux)
-
-./venv/Scripts/activate (Windows)
+./vnev/Srcipts/activate (Windows)
 ```
 
 ### 2. Install Project Dependencies
@@ -48,20 +47,36 @@ source venv/bin/activate (MacOS, Linux)
 Navigate to the src/agent directory and install the required dependencies:
 
 ```bash
-pip install -r .\src\agent\requirements.txt
+cd src/agent
+pip install -r requirements.txt
 ```
 
 ## How to run the Project
 
-### 1. Start the backend server
+### 1. Create a .env file
+Create a .env file inside agent
+
+### 2. Add environment variables inside the .env file
 ```bash
-python -m src.agent.app
+NVIDIA_API_KEY=
+TAVILY_API_KEY=
 ```
 
-### 2. Start the frontend
+create nvidia nim api key by clicking [here](https://build.nvidia.com/explore/discover).
+
+create tavily api key by clicking [here](https://docs.tavily.com/docs/gpt-researcher/getting-started).
+
+### 3. Start the backend server
+```bash
+cd Deco-3801/src/agent
+python app.py
+```
+
+### 4. Start the frontend
 open a new terminal
 ```bash
-streamlit run .\src\agent\frontend.py
+cd Deco-3801/src/agent
+streamlit run frontend.py
 ```
 
 
