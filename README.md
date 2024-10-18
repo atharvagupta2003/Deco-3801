@@ -49,6 +49,22 @@ cd src/agent
 pip install -r requirements.txt
 ```
 
+## How to run the Project
+
+### 1. Start the backend server
+```bash
+cd Deco-3801/src/agent
+python app.py
+```
+
+### 2. Start the frontend
+open a new terminal
+```bash
+cd Deco-3801/src/agent
+streamlit run frontend.py
+```
+
+
 ## LangGraph Studio Instructions
 While in Beta, LangGraph Studio is available for free to all LangSmith users on any plan tier. Sign up for LangSmith [here](https://smith.langchain.com/).
 
