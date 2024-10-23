@@ -47,7 +47,8 @@ source venv/bin/activate (MacOS)
 Navigate to the src/agent directory and install the required dependencies:
 
 ```bash
-pip install -r .\src\agent\requirements.txt
+cd src/agent
+pip install -r requirements.txt
 ```
 
 ## How to run the Project
@@ -66,14 +67,21 @@ create nvidia nim api key by clicking [here](https://build.nvidia.com/explore/di
 create tavily api key by clicking [here](https://docs.tavily.com/docs/gpt-researcher/getting-started).
 
 ### 3. Start the backend server
+open a new terminal
 ```bash
-python -m src.agent.app
+cd src/agent (MacOS)
+python app.py
+
+python -m src.agent.app (Windows)
 ```
 
 ### 4. Start the frontend
 open a new terminal
 ```bash
-streamlit run .\src\agent\frontend.py
+cd src/agent (MacOS)
+streamlit run frontend.py
+
+streamlit run .\src\agent\frontend.py (Windows)
 ```
 
 
